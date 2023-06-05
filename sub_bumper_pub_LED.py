@@ -55,6 +55,8 @@ class BumperLightChange(Node):
         This function is called every time self.subscription gets a message
         from the Robot. It then changes color based on that message.
         '''
+        if not self.lightring.override_system:
+            return
         if self.elapsed_time() > 40 and not self.done_waiting:
             print("Try the bumpers now")
             self.done_waiting = True
@@ -70,20 +72,15 @@ class BumperLightChange(Node):
                     print(f"first detected bump at: {self.first_bump_time}")
                 print(f"{det} at {self.elapsed_time()}")
                 if det == "bump_right":
-                    light_list = [self.cp.blue, self.cp.blue, self.cp.blue,
-                                  self.cp.blue, self.cp.blue, self.cp.blue]
+                    light_list = self.make_uniform_light(self.cp.blue)
                 elif det == "bump_left":
-                    light_list = [self.cp.red, self.cp.red, self.cp.red,
-                                  self.cp.red, self.cp.red, self.cp.red]
+                    light_list = self.make_uniform_light(self.cp.red)
                 elif det == "bump_front_left":
-                    light_list = [self.cp.pink, self.cp.pink, self.cp.pink,
-                                  self.cp.pink, self.cp.pink, self.cp.pink]
+                    light_list = self.make_uniform_light(self.cp.pink)
                 elif det == "bump_front_right":
-                    light_list = [self.cp.cyan, self.cp.cyan, self.cp.cyan,
-                                  self.cp.cyan, self.cp.cyan, self.cp.cyan]
+                    light_list = self.make_uniform_light(self.cp.cyan)
                 elif det == "bump_front_center":
-                    light_list = [self.cp.white, self.cp.white, self.cp.white,
-                                  self.cp.white, self.cp.white, self.cp.white]
+                    light_list = self.make_uniform_light(self.cp.purple)
 
                 current_time = self.get_clock().now()
 
@@ -94,6 +91,16 @@ class BumperLightChange(Node):
             # self.get_logger().info('I heard: "%s"' % msg)
 
 
+    def make_uniform_light(self, color):
+        return [color] * 6
+
+
+    def reset(self):
+        self.lightring.override_system = False
+        self.lightring.leds = self.make_uniform_light(self.cp.white)
+        self.lights_publisher.publish(self.lightring)
+
+
 def main(args=None):
     print("starting")
     rclpy.init(args=args)
@@ -101,13 +108,20 @@ def main(args=None):
 
     bumper_light = BumperLightChange("/archangel")
     print("node set up; awaiting ROS2 startup...")
+    # Disaster
+    #try:
+    #    while True:
+    #        rclpy.spin_once(bumper_light)
+    #except KeyboardInterrupt:
+    #    print('\nCaught keyboard interrupt')
+    #    bumper_light.reset()
+    #    rclpy.shutdown()
     try:
         rclpy.spin(bumper_light)
     except KeyboardInterrupt:
         print('\nCaught keyboard interrupt')
     finally:
         print("Done")
-        rclpy.shutdown()
 
 
 if __name__ == '__main__':
