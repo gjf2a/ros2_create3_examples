@@ -1,7 +1,5 @@
 # Adapted from https://github.com/paccionesawyer/Create3_ROS2_Intro/blob/main/individual_examples/sub_bumper_pub_LED.py
 
-# Next idea for shutdown: Try creating a new publisher, publish the message, then quit
-
 import time
 import sys
 import rclpy
@@ -116,13 +114,6 @@ def main(args=None):
         print('\nCaught keyboard interrupt')
     finally:
         print("Done")
-        rclpy.init(args=None)
-        node = Node("shutter_downer")
-        publisher = node.create_publisher(LightringLeds, "/archangel/cmd_lightring", 10)
-        lr = LightringLeds()
-        publisher.publish(lr)
-        node.destroy_node()
-        rclpy.shutdown()
 
 
 if __name__ == '__main__':
