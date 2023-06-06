@@ -96,6 +96,7 @@ class BumperLightChange(Node):
 
 
     def reset(self):
+        print("Inside reset")
         self.lightring.override_system = False
         self.lightring.leds = self.make_uniform_light(self.cp.white)
         self.lights_publisher.publish(self.lightring)
@@ -108,12 +109,23 @@ def main(args=None):
 
     bumper_light = BumperLightChange("/archangel")
     print("node set up; awaiting ROS2 startup...")
+    executor = rclpy.get_global_executor()
+    context = rclpy.get_default_context()
+    context.on_shutdown(bumper_light.reset)
     try:
-        rclpy.spin(bumper_light)
+        executor.add_node(bumper_light)
+        while executor.context.ok():
+            executor.spin_once()
     except KeyboardInterrupt:
         print('\nCaught keyboard interrupt')
     finally:
         print("Done")
+    #try:
+    #    rclpy.spin(bumper_light)
+    #except KeyboardInterrupt:
+    #    print('\nCaught keyboard interrupt')
+    #finally:
+    #    print("Done")
 
 
 if __name__ == '__main__':
