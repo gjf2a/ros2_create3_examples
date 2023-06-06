@@ -91,10 +91,11 @@ class BumperLightChange(Node):
                 self.lights_publisher.publish(self.lightring)
             # self.get_logger().info('I heard: "%s"' % msg)
 
+    def ros_issuing_callbacks(self):
+        return self.first_callback_time is not None
 
     def make_uniform_light(self, color):
         return [color] * 6
-
 
     def reset(self):
         print("Inside reset")
@@ -103,7 +104,7 @@ class BumperLightChange(Node):
         self.lights_publisher.publish(self.lightring)
 
 
-def spin_thread(event):
+def spin_thread(finished, ros_ready):
     print("starting")
     rclpy.init(args=None)
     print("init done")
@@ -112,48 +113,27 @@ def spin_thread(event):
     print("node set up; awaiting ROS2 startup...")
     executor = rclpy.get_global_executor()
     executor.add_node(bumper_light)
-    while executor.context.ok() and not event.is_set():
+    while executor.context.ok() and not finished.is_set():
         executor.spin_once()
+        if bumper_light.ros_issuing_callbacks():
+            ros_ready.set()
     bumper_light.reset()
     rclpy.shutdown()
 
 
-def input_thread(event):
+def input_thread(finished, ros_ready):
+    while not ros_ready.is_set():
+        pass
     user = input("Type anything to exit")
-    event.set()
-
-
-def main(args=None):
-    print("starting")
-    rclpy.init(args=args)
-    print("init done")
-
-    bumper_light = BumperLightChange("/archangel")
-    print("node set up; awaiting ROS2 startup...")
-    executor = rclpy.get_global_executor()
-    context = rclpy.get_default_context()
-    context.on_shutdown(bumper_light.reset)
-    try:
-        executor.add_node(bumper_light)
-        while executor.context.ok():
-            executor.spin_once()
-    except KeyboardInterrupt:
-        print('\nCaught keyboard interrupt')
-    finally:
-        print("Done")
-    #try:
-    #    rclpy.spin(bumper_light)
-    #except KeyboardInterrupt:
-    #    print('\nCaught keyboard interrupt')
-    #finally:
-    #    print("Done")
+    finished.set()
 
 
 if __name__ == '__main__':
-    #main()
-    event = threading.Event()
-    it = threading.Thread(target=input_thread, args=(event,))
-    st = threading.Thread(target=spin_thread, args=(event,))
+    finished = threading.Event()
+    ros_ready = threading.Event()
+    
+    st = threading.Thread(target=spin_thread, args=(finished,ros_ready))
+    it = threading.Thread(target=input_thread, args=(finished,ros_ready))
     it.start()
     st.start()
     it.join()
