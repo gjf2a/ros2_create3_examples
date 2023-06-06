@@ -1,4 +1,5 @@
 # Adapted from https://github.com/paccionesawyer/Create3_ROS2_Intro/blob/main/individual_examples/sub_bumper_pub_LED.py
+# Events and threads: see https://superfastpython.com/thread-event-object-in-python/
 
 import time
 import threading
@@ -122,8 +123,7 @@ def spin_thread(finished, ros_ready):
 
 
 def input_thread(finished, ros_ready):
-    while not ros_ready.is_set():
-        pass
+    ros_ready.wait()
     user = input("Type anything to exit")
     finished.set()
 
