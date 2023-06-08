@@ -5,19 +5,21 @@ import gpiod
 import time
 import sys
 
-
+DEFAULT_TIMEOUT = 0.1
 SPEED_OF_SOUND = 34300
 
 def chip_from_num(num):
     return f'gpiochip{num}'
 
 class Sonar:
-    def __init__(self, chip, trig_line, echo_line, timeout):
+    """
+    Each Sonar object corresponds to a physical sonar. 
+    """
+    def __init__(self, chip, trig_line, echo_line, timeout=DEFAULT_TIMEOUT):
         self.chip = chip
         self.trig_line = trig_line
         self.echo_line = echo_line
         self.timeout = timeout
-
 
     def read(self):
         with gpiod.Chip(chip_from_num(self.chip)) as chip:
@@ -28,7 +30,6 @@ class Sonar:
             duration = self.listen_for_return(echo_line)
 
             return duration * SPEED_OF_SOUND / 2
-
 
     def get_line(self, chip, line_num, req_dir):
         line = chip.get_line(line_num)
@@ -52,12 +53,19 @@ class Sonar:
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 5:
-        print("Usage: sonar.py chip trig_line echo_line timeout [num_pings]")
+    if len(sys.argv) < 4:
+        print("Usage: sonar.py chip trig_line echo_line [-t:timeout] [-p:num_pings]")
     else:
-        sonar = Sonar(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]), float(sys.argv[4]))
-        num_measures = None if len(sys.argv) < 6 else int(sys.argv[5])
+        timeout = DEFAULT_TIMEOUT
+        num_pings = None
+        for arg in sys.argv:
+            if arg.startswith("-t:"):
+                timeout = float(arg[3:])
+            elif arg.startswith("-p:"):
+                num_pings = int(arg[3:])
+
+        sonar = Sonar(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]), timeout)
         count = 0
-        while num_measures is None or count < num_measures:
+        while num_pings is None or count < num_pings:
             count += 1
             print(sonar.read())
