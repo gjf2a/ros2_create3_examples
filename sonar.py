@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # Adapted from: https://tutorials-raspberrypi.com/raspberry-pi-ultrasonic-sensor-hc-sr04/
+# GPIO code from: https://hub.libre.computer/t/how-to-control-gpio-via-python-3/601
 
 import gpiod
 import time
@@ -14,7 +15,17 @@ def chip_from_num(num):
 class Sonar:
     """
     Each Sonar object corresponds to a physical sonar. 
+
+    Attributes:
+        chip (int): which GPIO chip is used for the trigger and echo pins
+                    Note: Both pins have to be on the same chip
+        trig_line (int): Trigger pin line number
+        echo_line (int): Echo pin line number
+        timeout (float): How much time elapses before we assume no ping 
+                         will be heard by the echo.
+        
     """
+
     def __init__(self, chip, trig_line, echo_line, timeout=DEFAULT_TIMEOUT):
         self.chip = chip
         self.trig_line = trig_line
@@ -22,6 +33,7 @@ class Sonar:
         self.timeout = timeout
 
     def read(self):
+        """Read this Sonar once, returning a distance in centimeters."""
         with gpiod.Chip(chip_from_num(self.chip)) as chip:
             trig_line = self.get_line(chip, self.trig_line, gpiod.LINE_REQ_DIR_OUT)
             echo_line = self.get_line(chip, self.echo_line, gpiod.LINE_REQ_DIR_IN)
