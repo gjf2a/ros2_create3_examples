@@ -1,0 +1,39 @@
+# Based on https://github.com/paccionesawyer/Create3_ROS2_Intro/blob/main/individual_examples/pub_LED.py
+
+import runner
+import sonar
+
+import sys
+import time
+import rclpy
+
+from geometry_msgs.msg import Twist
+
+
+class SonarBot1(runner.HdxNode):
+    def __init__(self, namespace: str = ""):
+        super().__init__('wheel_publisher')
+
+        self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
+
+        timer_period = 0.5 # seconds
+        self.timer = self.create_timer(timer_period, self.timer_callback)
+        self.forward = Twist()
+        self.forward.linear.x = 0.5
+        self.turn = Twist()
+        self.turn.angular.z = 0.628
+
+        self.sonar = sonar.Sonar(1, 91, 92)
+
+    def timer_callback(self):
+        self.record_first_callback()
+
+        distance = self.sonar.read()
+        if distance < 30:
+            self.publisher.publish(self.turn)
+        else:
+            self.publisher.publish(self.forward)
+
+
+if __name__ == '__main__':
+    runner.run_single_node(lambda: SonarBot1('/archangel'))
