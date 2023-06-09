@@ -1,9 +1,9 @@
 # Based on https://github.com/paccionesawyer/Create3_ROS2_Intro/blob/main/individual_examples/pub_LED.py
 
 import sys
-import time
 import rclpy
 from rclpy.node import Node
+import sonar
 
 from geometry_msgs.msg import Twist
 
@@ -16,21 +16,23 @@ class WheelPublisher(Node):
     def __init__(self, namespace: str = ""):
         super().__init__('wheel_publisher')
 
-        self.start = time.time()
+        self.publisher = self.create_publisher(
+            Twist, namespace + '/cmd_vel', 10)
 
-        self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
-
-        timer_period = 0.5 # seconds
+        timer_period = 10 # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
         self.twist = Twist()
         self.twist.angular.z = 0.628
 
-
-    def elapsed(self):
-        return time.time() - self.start
-
     def timer_callback(self):
-        print(f"callback: {self.elapsed()}")
+        '''
+        Purpose
+        -------
+        This function will be called every 5 seconds, right now it's 
+        publishing the same colors every time. 
+        Try and see if you can get the colors to change each time this function 
+        is called!
+        '''
         self.publisher.publish(self.twist)
 
 
@@ -39,11 +41,11 @@ def main(args=None):
     rclpy.init(args=args)
 
     print("constructor")
-    wheel_publisher = WheelPublisher('/archangel')
+    led_publisher = WheelPublisher('/archangel')
 
     try:
-        print(f"starting publisher at {wheel_publisher.elapsed()}")
-        rclpy.spin(wheel_publisher)
+        print("starting publisher")
+        rclpy.spin(led_publisher)
     except KeyboardInterrupt:
         print('\nCaught Keyboard Interrupt')
     finally:
@@ -51,7 +53,7 @@ def main(args=None):
         # Destroy the node explicitly
         # (optional - otherwise it will be done automatically
         # when the garbage collector destroys the node object)
-        wheel_publisher.destroy_node()
+        led_publisher.destroy_node()
         rclpy.shutdown()
 
 

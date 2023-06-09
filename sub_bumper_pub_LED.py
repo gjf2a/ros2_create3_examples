@@ -1,6 +1,7 @@
 # Adapted from https://github.com/paccionesawyer/Create3_ROS2_Intro/blob/main/individual_examples/sub_bumper_pub_LED.py
 # Events and threads: see https://superfastpython.com/thread-event-object-in-python/
 
+import runner
 import time
 import threading
 import sys
@@ -105,36 +106,5 @@ class BumperLightChange(Node):
         self.lights_publisher.publish(self.lightring)
 
 
-def spin_thread(finished, ros_ready):
-    print("starting")
-    rclpy.init(args=None)
-    print("init done")
-
-    bumper_light = BumperLightChange("/archangel")
-    print("node set up; awaiting ROS2 startup...")
-    executor = rclpy.get_global_executor()
-    executor.add_node(bumper_light)
-    while executor.context.ok() and not finished.is_set():
-        executor.spin_once()
-        if bumper_light.ros_issuing_callbacks():
-            ros_ready.set()
-    bumper_light.reset()
-    rclpy.shutdown()
-
-
-def input_thread(finished, ros_ready):
-    ros_ready.wait()
-    user = input("Type anything to exit")
-    finished.set()
-
-
 if __name__ == '__main__':
-    finished = threading.Event()
-    ros_ready = threading.Event()
-    
-    st = threading.Thread(target=spin_thread, args=(finished,ros_ready))
-    it = threading.Thread(target=input_thread, args=(finished,ros_ready))
-    it.start()
-    st.start()
-    it.join()
-    st.join()
+    runner.run_single_node(lambda: BumperLightChange('/archangel'))
