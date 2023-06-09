@@ -10,6 +10,7 @@ class HdxNode(Node):
         super().__init__(name)
         self.start = time.time()
         self.first_callback_time = None
+        self.done = False
 
     def record_first_callback(self):
         if self.first_callback_time is None:
@@ -22,8 +23,14 @@ class HdxNode(Node):
     def elapsed_time(self):
         return time.time() - self.start
 
+    def quit(self):
+        self.done = True
+
     def reset(self):
         pass
+
+    def quitting(self):
+        return self.done
 
 
 def run_single_node(node_maker):
@@ -53,9 +60,10 @@ def spin_thread(finished, ros_ready, node_maker):
     node = node_maker()
     executor.add_node(node)
     print("Node created and added")
-    while executor.context.ok() and not finished.is_set():
+    while executor.context.ok() and not finished.is_set() and not node.quitting():
         executor.spin_once()
         if node.ros_issuing_callbacks():
             ros_ready.set()
     node.reset()
     rclpy.shutdown()
+    print("ROS2 has shut down")
