@@ -6,10 +6,9 @@ import time
 import threading
 import sys
 import rclpy
-from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
-from irobot_create_msgs.msg import HazardDetectionVector
 
+from irobot_create_msgs.msg import HazardDetectionVector
 from irobot_create_msgs.msg import LedColor
 from irobot_create_msgs.msg import LightringLeds
 
@@ -31,7 +30,7 @@ class ColorPalette():
         self.tufts_brown = LedColor(red=94, green=75, blue=60)
 
 
-class BumperLightChange(Node):
+class BumperLightChange(runner.HdxNode):
 
     def __init__(self, namespace: str = ''):
         super().__init__('bumper_light_change')
@@ -45,13 +44,8 @@ class BumperLightChange(Node):
 
         self.lightring = LightringLeds()
         self.lightring.override_system = True
-        self.start_time = time.time()
-        self.first_callback_time = None
         self.first_bump_time = None
         self.done_waiting = False
-
-    def elapsed_time(self):
-        return time.time() - self.start_time
 
     def listener_callback(self, msg):
         '''
@@ -92,9 +86,6 @@ class BumperLightChange(Node):
                 
                 self.lights_publisher.publish(self.lightring)
             # self.get_logger().info('I heard: "%s"' % msg)
-
-    def ros_issuing_callbacks(self):
-        return self.first_callback_time is not None
 
     def make_uniform_light(self, color):
         return [color] * 6

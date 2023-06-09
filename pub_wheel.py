@@ -1,5 +1,6 @@
 # Based on https://github.com/paccionesawyer/Create3_ROS2_Intro/blob/main/individual_examples/pub_LED.py
 
+import runner
 import sys
 import time
 import rclpy
@@ -24,12 +25,14 @@ class WheelPublisher(Node):
         self.timer = self.create_timer(timer_period, self.timer_callback)
         self.twist = Twist()
         self.twist.angular.z = 0.628
-
+        self.first_callback_time = None
 
     def elapsed(self):
         return time.time() - self.start
 
     def timer_callback(self):
+        if self.first_callback_time is None:
+            self.first_callback_time = self.elapsed()
         print(f"callback: {self.elapsed()}")
         self.publisher.publish(self.twist)
 
@@ -56,4 +59,4 @@ def main(args=None):
 
 
 if __name__ == '__main__':
-    main()
+    runner.run_single_node(lambda: WheelPublisher('/archangel'))

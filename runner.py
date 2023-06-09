@@ -2,6 +2,24 @@ import time
 import threading
 import sys
 import rclpy
+from rclpy.node import Node
+
+
+class HdxNode(Node):
+    def __init__(self, name):
+        super().__init__(name)
+        self.start = time.time()
+        self.first_callback_time = None
+
+    def ros_issuing_callbacks(self):
+        return self.first_callback_time is not None
+
+    def elapsed_time(self):
+        return time.time() - self.start
+
+    def reset(self):
+        pass
+
 
 def run_single_node(node_maker):
     finished = threading.Event()
