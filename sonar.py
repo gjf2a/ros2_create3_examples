@@ -6,7 +6,7 @@ import gpiod
 import time
 import sys
 
-DEFAULT_TIMEOUT = 0.1
+DEFAULT_TIMEOUT = 0.0075
 SPEED_OF_SOUND = 34300
 
 def chip_from_num(num):
