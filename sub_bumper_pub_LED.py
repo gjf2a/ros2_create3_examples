@@ -57,10 +57,9 @@ class BumperLightChange(runner.HdxNode):
         if self.elapsed_time() > 40 and not self.done_waiting:
             print("Try the bumpers now")
             self.done_waiting = True
+
+        self.record_first_callback()
             
-        if self.first_callback_time is None:
-            self.first_callback_time = self.elapsed_time()
-            print(f"ROS2 activated at {self.first_callback_time}")
         for detection in msg.detections:
             det = detection.header.frame_id
             if det != "base_link":
