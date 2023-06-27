@@ -26,13 +26,13 @@ class SonarBot1(runner.HdxNode):
         self.turn = Twist()
         self.turn.angular.z = 0.628
 
-        self.sonar = sonar.Sonar(1, 91, 92)
+        self.sonar = sonar.Sonar(1, 93, 94)
 
     def timer_callback(self):
         self.record_first_callback()
 
         distance = self.sonar.read()
-        if distance < 30:
+        if distance < 50:
             self.publisher.publish(self.turn)
         else:
             self.publisher.publish(self.forward)

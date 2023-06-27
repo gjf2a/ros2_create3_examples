@@ -7,6 +7,7 @@ import time
 import sys
 
 DEFAULT_TIMEOUT = 0.0075
+PING_SLEEP = 0.00001
 SPEED_OF_SOUND = 34300
 
 def chip_from_num(num):
@@ -23,6 +24,32 @@ class Sonar:
         echo_line (int): Echo pin line number
         timeout (float): How much time elapses before we assume no ping 
                          will be heard by the echo.
+
+        Pins:
+        *  7: 1 98
+        *  8: 1 91
+        * 10: 1 92
+        * 11: 0  8
+        * 12: 0  6
+        * 13: 0  9
+        * 15: 0 10
+        * 16: 1 93
+        * 18: 1 94
+        * 22: 1 79
+        * 29: 1 96
+        * 31: 1 97
+        * 32: 1 95
+        * 33: 1 85
+        * 35: 1 86
+        * 36: 1 81
+        * 37: 1 84
+        * 38: 1 82
+        * 40: 1 83
+
+        Current circuit:
+        *  8, 10 -> 1 91 92
+        * 11, 13 -> 1 93 94
+        * 29, 31 -> 1 96 97
         
     """
 
@@ -50,7 +77,7 @@ class Sonar:
 
     def send_ping(self, trig_line):
         trig_line.set_value(1)
-        time.sleep(0.00001)
+        time.sleep(PING_SLEEP)
         trig_line.set_value(0)
 
     def listen_for_return(self, echo_line):
@@ -64,10 +91,22 @@ class Sonar:
         return stop - start
 
 
+class SonarArray:
+    def __init__(self, sonar_list=None):
+        self.sonar_list = [] if sonar_list is None else sonar_list
+
+    def add(self, sonar):
+        self.sonar_list.append(sonar)
+
+    def read(self):
+        return [sonar.read() for sonar in self.sonar_list]
+
+
 if __name__ == '__main__':
-    if len(sys.argv) < 4:
-        print("Usage: sonar.py chip trig_line echo_line [-t:timeout] [-p:num_pings]")
+    if len([arg for arg in sys.argv if arg.startswith("-s")]) == 0:
+        print("Usage: sonar.py [-s:chip:trig_line:echo_line] [-t:timeout] [-p:num_pings]")
     else:
+        sonars = SonarArray()
         timeout = DEFAULT_TIMEOUT
         num_pings = None
         for arg in sys.argv:
@@ -75,9 +114,12 @@ if __name__ == '__main__':
                 timeout = float(arg[3:])
             elif arg.startswith("-p:"):
                 num_pings = int(arg[3:])
+            elif arg.startswith("-s:"):
+                tag, chip, trig_line, echo_line = arg.split(":")
+                sonars.add(Sonar(int(chip), int(trig_line), int(echo_line), timeout))
 
-        sonar = Sonar(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]), timeout)
         count = 0
         while num_pings is None or count < num_pings:
             count += 1
-            print(sonar.read())
+            print(sonars.read())
+            time.sleep(0.2)
