@@ -45,12 +45,6 @@ class VisionBot(runner.HdxNode):
         timer_period = 0.25 # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
         # Required for "Type Anything to Quit" from runner.py"
-        self.forward = Twist()
-        self.forward.linear.x = 0.5
-        self.turn_left = Twist()
-        self.turn_left.angular.z = 1.0
-        self.turn_right = Twist()
-        self.turn_right.angular.z = -1.0
 
         # OpenCV stuff
         self.cap = cv2.VideoCapture(0)
@@ -63,9 +57,13 @@ class VisionBot(runner.HdxNode):
         self.record_first_callback()
         frame, contours, close_contour, best = contour_inner_loop(self.cap, self.kernel_size, 20)
         x_center = sum(p[0][0] for p in best) / len(best)
-        fuzzy_left = fuzzify_rising(x_center, 0, 320)
-        fuzzy_right = fuzzify_falling(x_center, 320, 640)
-        print(fuzzy_left, fuzzy_right)
+        fuzzy_center = fuzzify_falling(x_center, 0, 640)
+        msg = Twist()
+        msg.linear.x = 0.1  
+        msg.angular.z = defuzzify(fuzzy_center, -0.785, 0.785)
+        print(fuzzy_center, msg.angular.z)
+        self.publisher.publish(msg)
+
 
     def button_callback(self, msg: InterfaceButtons):
         if msg.button_1.is_pressed or msg.button_2.is_pressed or msg.button_power.is_pressed:

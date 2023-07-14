@@ -17,7 +17,7 @@ class TwistDemoBot(runner.HdxNode):
         # https://www.perplexity.ai/search/63aa4772-955b-497c-ba05-57a8513bf4cf?s=c
         self.msg = Twist()
         self.msg.linear.x = 0.1  # set linear velocity to 0.1 m/s
-        self.msg.angular.z = 0.785  # set angular velocity to 0.785 rad/s (45 degrees/s)
+        self.msg.angular.z = -0.785  # set angular velocity to 0.785 rad/s (45 degrees/s)
 
         self.straight = Twist()
         self.straight.linear.x = 0.1
