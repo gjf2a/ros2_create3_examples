@@ -27,16 +27,13 @@ class TwistDemoBot(runner.HdxNode):
         self.stop.linear.x = 0.0
         self.stop.angular.z = 0.0
 
-        self.turning = True
+        self.actions = [self.msg, self.straight, self.stop]
+        self.action = 0
 
     def timer_callback(self):
         self.record_first_callback()
-        if self.turning:
-            self.publisher.publish(self.msg)
-        else:
-            self.publisher.publish(self.straight)
-            
-        self.turning = not self.turning
+        self.publisher.publish(self.actions[self.action])
+        self.action = (self.action + 1) % len(self.actions)
 
 
 if __name__ == '__main__':
