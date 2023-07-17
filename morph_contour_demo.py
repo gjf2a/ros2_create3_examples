@@ -3,6 +3,8 @@ import cv2
 import numpy as np
 import time
 
+from queue import Queue
+
 
 class Timer:
     def __init__(self):
@@ -17,7 +19,7 @@ class Timer:
     
 
 
-def morph_contour_loop(video_port, kernel_side, min_space_width):
+def morph_contour_loop(video_port, kernel_side, min_space_width, queue):
     kernel_size = (kernel_side, kernel_side)
     cap = cv2.VideoCapture(video_port)
     timer = Timer()
@@ -31,6 +33,9 @@ def morph_contour_loop(video_port, kernel_side, min_space_width):
         cv2.imshow('frame', frame)
         timer.inc()
 
+        if queue.empty():
+            queue.put(best)
+
         # Exit the loop if 'q' is pressed
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
@@ -39,6 +44,7 @@ def morph_contour_loop(video_port, kernel_side, min_space_width):
     cap.release()
     cv2.destroyAllWindows()
     print("FPS:", fps)
+    queue.put("QUIT")
 
 
 def contour_inner_loop(cap, kernel_size, min_space_width):
@@ -122,5 +128,6 @@ if __name__ == '__main__':
     if len(sys.argv) < 3:
         print("Usage: morph_contour_demo.py video_port kernel_side min_space_width")
     else:
-        morph_contour_loop(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]))
+        queue = Queue()
+        morph_contour_loop(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]), queue)
 

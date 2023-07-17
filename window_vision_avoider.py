@@ -8,8 +8,10 @@ from irobot_create_msgs.msg import InterfaceButtons
 from irobot_create_msgs.msg import IrIntensityVector
 from rclpy.qos import qos_profile_sensor_data
 
-from morph_contour_demo import Timer, contour_inner_loop
-import cv2
+from morph_contour_demo import Timer, morph_contour_loop
+
+from queue import Queue
+import threading
 
 
 def fuzzify_rising(value, start, end):
@@ -37,7 +39,7 @@ def defuzzify(value, zero, one):
 
 
 class VisionBot(runner.HdxNode):
-    def __init__(self, namespace: str = ""):
+    def __init__(self, img_queue, namespace: str = ""):
         super().__init__('wheel_publisher')
         self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
         self.buttons = self.create_subscription(InterfaceButtons, namespace + '/interface_buttons', self.button_callback, qos_profile_sensor_data)
@@ -45,23 +47,22 @@ class VisionBot(runner.HdxNode):
         self.timer = self.create_timer(timer_period, self.timer_callback)
         # Required for "Type Anything to Quit" from runner.py"
 
-        # OpenCV stuff
-        self.cap = cv2.VideoCapture(0)
-        if not self.cap.isOpened():
-            print("Can't open camera - exiting")
-            sys.exit(1)
-        self.kernel_size = (9, 9)
+        self.img_queue = img_queue
 
     def timer_callback(self):
         self.record_first_callback()
-        frame, contours, close_contour, best = contour_inner_loop(self.cap, self.kernel_size, 20)
-        x_center = sum(p[0][0] for p in best) / len(best)
-        fuzzy_center = fuzzify_falling(x_center, 0, 640)
-        msg = Twist()
-        msg.linear.x = 0.1  
-        msg.angular.z = defuzzify(fuzzy_center, -0.785, 0.785)
-        print(fuzzy_center, msg.angular.z)
-        self.publisher.publish(msg)
+        if not self.img_queue.empty():
+            best = self.img_queue.get()
+            if best == "QUIT":
+                self.quit()
+            else:
+                x_center = sum(p[0][0] for p in best) / len(best)
+                fuzzy_center = fuzzify_falling(x_center, 0, 640)
+                msg = Twist()
+                msg.linear.x = 0.1  
+                msg.angular.z = defuzzify(fuzzy_center, -0.785, 0.785)
+                print(fuzzy_center, msg.angular.z)
+                self.publisher.publish(msg)
 
     def button_callback(self, msg: InterfaceButtons):
         if msg.button_1.is_pressed or msg.button_2.is_pressed or msg.button_power.is_pressed:
@@ -91,5 +92,10 @@ class VisionBot(runner.HdxNode):
             self.ir_clear_count += 1
 
 if __name__ == '__main__':
+    queue = Queue()
+    vt = threading.Thread(target=morph_contour_loop, args=(0, 9, 20, queue))
+    vt.start()
+    while queue.empty():
+        pass
     print(f"Starting up {sys.argv[1]}...")
-    runner.run_single_node(lambda: VisionBot(f'/{sys.argv[1]}'))
+    runner.run_single_node(lambda: VisionBot(queue, f'/{sys.argv[1]}'))
