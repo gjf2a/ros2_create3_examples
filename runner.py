@@ -5,6 +5,20 @@ import rclpy
 from rclpy.node import Node
 import cv2
 
+from geometry_msgs.msg import Twist
+
+
+def straight_twist(vel):
+    t = Twist()
+    t.linear.x = vel
+    return t
+
+
+def turn_twist(vel):
+    t = Twist()
+    t.angular.z = vel
+    return t
+
 
 class Timer:
     def __init__(self):

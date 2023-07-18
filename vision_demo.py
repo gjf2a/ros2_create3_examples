@@ -12,12 +12,20 @@ from queue import Queue
 import threading
 
 
+key2twist = {
+    'a': runner.turn_twist(0.5),
+    'd': runner.turn_twist(-0.5),
+    'w': runner.straight_twist(0.5),
+    's': runner.straight_twist(-0.5)
+}
+
+
 class VisionBot(runner.HdxNode):
     def __init__(self, img_queue, namespace: str = ""):
         super().__init__('wheel_publisher')
         self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
         self.buttons = self.create_subscription(InterfaceButtons, namespace + '/interface_buttons', self.button_callback, qos_profile_sensor_data)
-        #self.irs = self.create_subscription(IrIntensityVector, f"{namespace}/ir_intensity", self.ir_callback, qos_profile_sensor_data)
+        self.irs = self.create_subscription(IrIntensityVector, f"{namespace}/ir_intensity", self.ir_callback, qos_profile_sensor_data)
         timer_period = 0.10 # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
@@ -30,19 +38,15 @@ class VisionBot(runner.HdxNode):
             if type(msg) == runner.CvKey:
                 if msg.is_quit():
                     self.quit()
-                else:
-                    print(msg.key)
+                elif msg.key in key2twist:
+                    self.publisher.publish(key2twist[msg.key])
 
     def button_callback(self, msg: InterfaceButtons):
         if msg.button_1.is_pressed or msg.button_2.is_pressed or msg.button_power.is_pressed:
             self.quit()
             
     def ir_callback(self, msg):
-        print(f"IR callback at {self.elapsed_time()}")
-        for reading in msg.readings:
-            det = reading.header.frame_id
-            val = reading.value
-            print(det, val)
+        print('irs', [reading.value for reading in msg.readings])
 
 
 if __name__ == '__main__':
