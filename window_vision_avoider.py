@@ -2,13 +2,14 @@ import runner
 import sys
 import time
 import rclpy
+import cv2
 
 from geometry_msgs.msg import Twist
 from irobot_create_msgs.msg import InterfaceButtons
 from irobot_create_msgs.msg import IrIntensityVector
 from rclpy.qos import qos_profile_sensor_data
 
-from morph_contour_demo import Timer, morph_contour_loop
+from morph_contour_demo import Timer, find_contours, find_close_contour, find_contour_clusters, best_contour_cluster
 
 from queue import Queue
 import threading
@@ -43,7 +44,7 @@ class VisionBot(runner.HdxNode):
         super().__init__('wheel_publisher')
         self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
         self.buttons = self.create_subscription(InterfaceButtons, namespace + '/interface_buttons', self.button_callback, qos_profile_sensor_data)
-        self.irs = self.create_subscription(IrIntensityVector, f"{namespace}/interface_buttons", self.ir_callback, qos_profile_sensor_data)
+        self.irs = self.create_subscription(IrIntensityVector, f"{namespace}/ir_intensity", self.ir_callback, qos_profile_sensor_data)
         timer_period = 0.10 # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
@@ -69,33 +70,33 @@ class VisionBot(runner.HdxNode):
             self.quit()
             
     def ir_callback(self, msg):
-        print(f"IR callback at {self.elapsed_time()}")
-        for reading in msg.readings:
-            det = reading.header.frame_id
-            val = reading.value
-            if det != "base_link":
-                self.ir_check(det, val)
-        if self.ir_clear_count == 7:
-           self.publisher.publish(self.forward)
-        self.ir_clear_count = 0
+        print('irs', [reading.value for reading in msg.readings])
 
-    def ir_check(self, sensor: str = "", val: int = 0):
-        if val > 100:
-            if sensor.endswith("right"):
-                self.publisher.publish(self.turn_left)
-            elif sensor.endswith("left"):
-                self.publisher.publish(self.turn_right)
-            print(sensor)
-            self.irs.add(sensor)
-            print(self.irs)
-        else:
-            self.ir_clear_count += 1
+
+def find_floor_contour(frame, cap, kernel_midwidth):
+    kernel, min_space_width = kernel_midwidth
+    kernel_size = (kernel, kernel)
+
+    frame = cv2.resize(frame, (640, 480))
+    contours, hierarchy = find_contours(frame, kernel_size)
+    close_contour = find_close_contour(contours, cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    clusters = find_contour_clusters(close_contour)
+    best = best_contour_cluster(clusters, min_space_width)
+
+    cv2.drawContours(frame, contours, -1, (0, 255, 0), 3)
+    cv2.drawContours(frame, close_contour, -1, (255, 0, 0), 3)
+    cv2.drawContours(frame, best, -1, (0, 0, 255), 3)
+
+    return frame, best
+
+
+
+class FloorContour(runner.OpenCvCode):
+    def __init__(self, msg_queue):
+        super().__init__(0, find_floor_contour, (9, 20), msg_queue)
+
 
 if __name__ == '__main__':
-    queue = Queue()
-    vt = threading.Thread(target=morph_contour_loop, args=(0, 9, 20, queue))
-    vt.start()
-    while queue.empty():
-        pass
+    msg_queue = Queue()
     print(f"Starting up {sys.argv[1]}...")
-    runner.run_single_node(lambda: VisionBot(queue, f'/{sys.argv[1]}'))
+    runner.run_vision_node(lambda: VisionBot(msg_queue, f'/{sys.argv[1]}'), FloorContour(msg_queue))
