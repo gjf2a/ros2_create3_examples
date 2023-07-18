@@ -11,9 +11,10 @@ class BumperBot(runner.HdxNode):
         self.bumps = self.create_subscription(HazardDetectionVector, f"{namespace}/hazard_detection", self.bump_callback, qos_profile_sensor_data)
 
     def bump_callback(self, msg):
+        self.record_first_callback()
         for detected in msg.detections:
             if detected.header.frame_id != 'base_link':
-                print(detected.header.frame_id)
+                print(detected.header.frame_id, runner.BUMP_HEADINGS[detected.header.frame_id])
 
 
 if __name__ == '__main__':

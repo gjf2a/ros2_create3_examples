@@ -4,6 +4,7 @@ import sys
 import rclpy
 from rclpy.node import Node
 import cv2
+import math
 
 from geometry_msgs.msg import Twist
 
@@ -18,6 +19,15 @@ def turn_twist(vel):
     t = Twist()
     t.angular.z = vel
     return t
+
+
+BUMP_HEADINGS = {
+    'bump_left': -math.pi / 2,
+    'bump_front_left': -math.pi / 4,
+    'bump_front_center': 0.0,
+    'bump_front_right': math.pi / 4,
+    'bump_right': math.pi / 2
+}
 
 
 class Timer:
