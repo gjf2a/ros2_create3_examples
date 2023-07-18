@@ -6,7 +6,7 @@ import cv2
 
 from geometry_msgs.msg import Twist
 from irobot_create_msgs.msg import InterfaceButtons
-from irobot_create_msgs.msg import IrIntensityVector
+from irobot_create_msgs.msg import IrIntensityVector, HazardDetectionVector
 from rclpy.qos import qos_profile_sensor_data
 
 from morph_contour_demo import Timer, find_contours, find_close_contour, find_contour_clusters, best_contour_cluster
@@ -45,6 +45,7 @@ class VisionBot(runner.HdxNode):
         self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
         self.buttons = self.create_subscription(InterfaceButtons, namespace + '/interface_buttons', self.button_callback, qos_profile_sensor_data)
         self.irs = self.create_subscription(IrIntensityVector, f"{namespace}/ir_intensity", self.ir_callback, qos_profile_sensor_data)
+        self.bumps = self.create_subscription(HazardDetectionVector, f"{namespace}/hazard_detection", self.bump_callback, qos_profile_sensor_data)
         timer_period = 0.10 # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
@@ -71,6 +72,9 @@ class VisionBot(runner.HdxNode):
             
     def ir_callback(self, msg):
         print('irs', [reading.value for reading in msg.readings])
+
+    def bump_callback(self, msg):
+        print("bump", [(reading.header.frame_id, reading.type) for reading in msg.detections])
 
 
 def find_floor_contour(frame, cap, kernel_midwidth):
