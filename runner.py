@@ -30,6 +30,12 @@ BUMP_HEADINGS = {
 }
 
 
+def find_bump_from(detections):
+    for detected in detections:
+        if detected.header.frame_id.startswith('bump'):
+            return detected.header.frame_id
+
+
 class Timer:
     def __init__(self):
         self.start = time.time()
