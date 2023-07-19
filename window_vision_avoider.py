@@ -3,6 +3,7 @@ import sys
 import time
 import rclpy
 import cv2
+import math
 
 from geometry_msgs.msg import Twist
 from irobot_create_msgs.msg import InterfaceButtons
@@ -50,6 +51,10 @@ class VisionBot(runner.HdxNode):
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
         self.img_queue = img_queue
+        self.avoid_direction = None
+
+    def use_vision(self):
+        return self.avoid_direction is None
 
     def timer_callback(self):
         self.record_first_callback()
@@ -57,13 +62,14 @@ class VisionBot(runner.HdxNode):
             best = self.img_queue.get()
             if best == "QUIT":
                 self.quit()
-            else:
+            elif self.use_vision():
                 x_center = sum(p[0][0] for p in best) / len(best)
+                y_center = sum(p[0][1] for p in best) / len(best)
                 fuzzy_center = fuzzify_falling(x_center, 0, 640)
                 msg = Twist()
                 msg.linear.x = 0.1  
                 msg.angular.z = defuzzify(fuzzy_center, -0.785, 0.785)
-                print(fuzzy_center, msg.angular.z)
+                print(f"best: ({x_center}, {y_center}) {fuzzy_center} {msg.angular.z}")
                 self.publisher.publish(msg)
 
     def button_callback(self, msg: InterfaceButtons):
@@ -71,10 +77,23 @@ class VisionBot(runner.HdxNode):
             self.quit()
             
     def ir_callback(self, msg):
-        print('irs', [reading.value for reading in msg.readings])
+        ir_values = [reading.value for reading in msg.readings]
+        if max(ir_values) > 50:
+            if self.use_vision():
+                mid = len(ir_values) // 2
+                self.avoid_direction = math.pi / 4
+                if sum(ir_values[:mid]) < sum(ir_values[-mid:]):
+                    self.avoid_direction *= -1.0
+                print("avoid start", sum(ir_values[:mid]), sum(ir_values[-mid:]))
+            self.publisher.publish(runner.turn_twist(self.avoid_direction))
+            print("avoiding", ir_values, self.avoid_direction)
+        else:
+            self.avoid_direction = None
 
     def bump_callback(self, msg):
-        print("bump", [(reading.header.frame_id, reading.type) for reading in msg.detections])
+        bump = runner.find_bump_from(msg.detections)
+        if bump:
+            print("bump", bump)
 
 
 def find_floor_contour(frame, cap, kernel_midwidth):
