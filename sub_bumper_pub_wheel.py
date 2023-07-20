@@ -7,18 +7,18 @@ from rclpy.qos import qos_profile_sensor_data
 from geometry_msgs.msg import Twist
 
 
-class BumperBot(runner.HdxNode):
+class BumpStopBot(runner.HdxNode):
     def __init__(self, namespace: str = ""):
         super().__init__('bump_subscriber')
         self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
         self.bumps = self.create_subscription(HazardDetectionVector, f"{namespace}/hazard_detection", self.bump_callback, qos_profile_sensor_data)
         self.wheel_status = self.create_subscription(WheelStatus, f'{namespace}/wheel_status', self.wheel_status_callback, qos_profile_sensor_data)
-        self.avoiding = False
+        self.bumped = False
         self.last_wheel_status = None
 
     def bump_callback(self, msg):
         self.record_first_callback()
-        if self.avoiding:
+        if self.bumped:
             print(self.last_wheel_status.current_ma_left, self.last_wheel_status.current_ma_right)
         else:
             bump = runner.find_bump_from(msg.detections)
@@ -26,11 +26,7 @@ class BumperBot(runner.HdxNode):
                 self.publisher.publish(runner.straight_twist(0.5))
             else:
                 print(bump)
-                self.avoiding = True
-            #if 'left' in bump:
-            #    self.publisher.publish(runner.turn_twist(math.pi/4))
-            #else:
-            #    self.publisher.publish(runner.turn_twist(-math.pi/4))
+                self.bumped = True
 
     def wheel_status_callback(self, msg):
         self.record_first_callback()
@@ -38,4 +34,4 @@ class BumperBot(runner.HdxNode):
 
 
 if __name__ == '__main__':
-    runner.run_single_node(lambda: BumperBot(f'/{sys.argv[1]}'))
+    runner.run_single_node(lambda: BumpStopBot(f'/{sys.argv[1]}'))
