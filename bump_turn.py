@@ -18,6 +18,7 @@ class BumpTurnBot(runner.HdxNode):
         self.bump = None
         self.last_wheel_status = None
         self.rotator = RotateActionClient(self.turn_finished_callback, namespace)
+        self.turning = False
 
     def wheels_stopped(self):
         return self.last_wheel_status is not None and self.last_wheel_status.current_ma_left == 0 and self.last_wheel_status.current_ma_right == 0
@@ -25,22 +26,21 @@ class BumpTurnBot(runner.HdxNode):
     def bump_callback(self, msg):
         self.record_first_callback()
         if self.bump is None:
-            print("open")
             self.bump = runner.find_bump_from(msg.detections)
             if self.bump is None:
                 self.publisher.publish(runner.straight_twist(0.5))
-        elif self.wheels_stopped():
+        elif self.wheels_stopped() and not self.turning:
+            self.turning = True
             goal = math.pi / 2
             if 'left' in self.bump:
                 goal *= -1
-            print("Starting turn", goal)
+            print(f"Starting turn to {goal} after {self.bump}")
             self.rotator.send_goal(goal)
             rclpy.spin_once(self.rotator)
-        else:
-            print("waiting on wheels")
 
     def turn_finished_callback(self, future):
         self.bump = None
+        self.turning = False
         print("finished with turn")
 
     def wheel_status_callback(self, msg):

@@ -5,7 +5,8 @@ import rclpy
 from rclpy.action import ActionClient
 from irobot_create_msgs.action import RotateAngle
 from rclpy.node import Node
-import math, sys
+import math, sys, threading
+
 
 class RotateActionClient(Node):
     def __init__(self, callback, namespace):
@@ -32,17 +33,23 @@ class RotateActionClient(Node):
 
 
 def example_callback(future):
+    print("Entering example_callback")
     result = future.result().result
     print("finished...", result)
-    rclpy.shutdown()
 
 
 def main(args=None, namespace=''):
+    global finish_flag
     rclpy.init(args=args)
 
     action_client = RotateActionClient(example_callback, namespace)
     action_client.send_goal(math.pi)
-    rclpy.spin(action_client)
+    st = threading.Thread(target=lambda ac: rclpy.spin(ac), args=(action_client,))
+    st.start()
+    input("Enter a key when you are ready to send a second goal")
+    action_client.send_goal(math.pi / 2)
+    input("Enter a key when you are ready to shut down")
+    rclpy.shutdown()
     print("done")
 
 

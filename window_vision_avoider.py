@@ -55,6 +55,7 @@ class VisionBot(runner.HdxNode):
         self.img_queue = img_queue
         self.last_wheel_status = None
         self.avoid_direction = None
+        self.actively_turning = False
         self.rotator = RotateActionClient(self.turn_finished_callback, namespace)
 
     def use_vision(self):
@@ -103,13 +104,15 @@ class VisionBot(runner.HdxNode):
                 self.avoid_direction = math.pi / 4
                 if 'left' in bump:
                     self.avoid_direction *= -1
-        elif self.wheels_stopped():
+        elif self.wheels_stopped() and not self.actively_turning:
+            self.actively_turning = True
             print("Starting turn")
             self.rotator.send_goal(self.avoid_direction)
             rclpy.spin_once(self.rotator)
 
     def turn_finished_callback(self, future):
         self.avoid_direction = None
+        self.actively_turning = False
         print("Finished with turn")
 
 
