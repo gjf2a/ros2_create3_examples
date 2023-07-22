@@ -7,8 +7,9 @@ import math
 
 from geometry_msgs.msg import Twist
 from irobot_create_msgs.msg import InterfaceButtons
-from irobot_create_msgs.msg import IrIntensityVector, HazardDetectionVector
+from irobot_create_msgs.msg import IrIntensityVector, HazardDetectionVector, WheelStatus
 from rclpy.qos import qos_profile_sensor_data
+from action_demo import RotateActionClient
 
 from morph_contour_demo import Timer, find_contours, find_close_contour, find_contour_clusters, best_contour_cluster
 
@@ -45,16 +46,26 @@ class VisionBot(runner.HdxNode):
         super().__init__('wheel_publisher')
         self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
         self.buttons = self.create_subscription(InterfaceButtons, namespace + '/interface_buttons', self.button_callback, qos_profile_sensor_data)
-        self.irs = self.create_subscription(IrIntensityVector, f"{namespace}/ir_intensity", self.ir_callback, qos_profile_sensor_data)
+        #self.irs = self.create_subscription(IrIntensityVector, f"{namespace}/ir_intensity", self.ir_callback, qos_profile_sensor_data)
         self.bumps = self.create_subscription(HazardDetectionVector, f"{namespace}/hazard_detection", self.bump_callback, qos_profile_sensor_data)
+        self.wheel_status = self.create_subscription(WheelStatus, f'{namespace}/wheel_status', self.wheel_status_callback, qos_profile_sensor_data)
         timer_period = 0.10 # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
         self.img_queue = img_queue
+        self.last_wheel_status = None
         self.avoid_direction = None
+        self.rotator = RotateActionClient(self.turn_finished_callback, namespace)
 
     def use_vision(self):
         return self.avoid_direction is None
+
+    def wheels_stopped(self):
+        return self.last_wheel_status is not None and self.last_wheel_status.current_ma_left == 0 and self.last_wheel_status.current_ma_right == 0
+
+    def wheel_status_callback(self, msg):
+        self.record_first_callback()
+        self.last_wheel_status = msg
 
     def timer_callback(self):
         self.record_first_callback()
@@ -68,7 +79,7 @@ class VisionBot(runner.HdxNode):
                 fuzzy_center = fuzzify_falling(x_center, 0, 640)
                 msg = Twist()
                 msg.linear.x = 0.1  
-                msg.angular.z = defuzzify(fuzzy_center, -0.785, 0.785)
+                msg.angular.z = defuzzify(fuzzy_center, -math.pi/4, math.pi/4)
                 print(f"best: ({x_center}, {y_center}) {fuzzy_center} {msg.angular.z}")
                 self.publisher.publish(msg)
 
@@ -91,9 +102,22 @@ class VisionBot(runner.HdxNode):
             self.avoid_direction = None
 
     def bump_callback(self, msg):
-        bump = runner.find_bump_from(msg.detections)
-        if bump:
-            print("bump", bump)
+        if self.use_vision():
+            bump = runner.find_bump_from(msg.detections)
+            if bump is not None:
+                self.avoid_direction = math.pi / 4
+                if 'left' in bump:
+                    self.avoid_direction *= -1
+        elif self.wheels_stopped():
+            print("Starting turn")
+            self.rotator.send_goal(self.avoid_direction)
+            rclpy.spin_once(self.rotator)
+        else:
+            print("Waiting on wheels")
+
+    def turn_finished_callback(self, future):
+        self.avoid_direction = None
+        print("Finished with turn")
 
 
 def find_floor_contour(frame, cap, kernel_midwidth):
