@@ -72,7 +72,9 @@ class VisionBot(runner.HdxNode):
         self.record_first_callback()
         if not self.img_queue.empty():
             best = self.img_queue.get()
-            if best == "QUIT":
+            if best is None:
+                print("Contour finder failed")
+            elif best == "QUIT":
                 self.quit()
             elif self.use_vision():
                 x_center = sum(p[0][0] for p in best) / len(best)
@@ -122,12 +124,16 @@ def find_floor_contour(frame, cap, kernel_midwidth):
     frame = cv2.resize(frame, (640, 480))
     contours, hierarchy = find_contours(frame, kernel_size)
     close_contour = find_close_contour(contours, cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    clusters = find_contour_clusters(close_contour)
-    best = best_contour_cluster(clusters, min_space_width)
-
     cv2.drawContours(frame, contours, -1, (0, 255, 0), 3)
-    cv2.drawContours(frame, close_contour, -1, (255, 0, 0), 3)
-    cv2.drawContours(frame, best, -1, (0, 0, 255), 3)
+    if close_contour is None:
+        print("contour finding failure")
+        best = None
+    else:
+        clusters = find_contour_clusters(close_contour)
+        best = best_contour_cluster(clusters, min_space_width)
+
+        cv2.drawContours(frame, close_contour, -1, (255, 0, 0), 3)
+        cv2.drawContours(frame, best, -1, (0, 0, 255), 3)
 
     return frame, best
 

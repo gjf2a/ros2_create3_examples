@@ -52,9 +52,12 @@ def contour_inner_loop(cap, kernel_size, min_space_width):
     frame = cv2.resize(frame, (640, 480))
     contours, hierarchy = find_contours(frame, kernel_size)
     close_contour = find_close_contour(contours, cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    clusters = find_contour_clusters(close_contour)
-    best = best_contour_cluster(clusters, min_space_width)
-    return frame, contours, close_contour, best
+    if close_contour is None:
+        return frame, contours, None, None
+    else:
+        clusters = find_contour_clusters(close_contour)
+        best = best_contour_cluster(clusters, min_space_width)
+        return frame, contours, close_contour, best
 
 
 def find_contours(frame, kernel_size):
@@ -71,15 +74,16 @@ def find_contours(frame, kernel_size):
 
 
 def find_close_contour(contours, height):
-    best_xs = {}
-    for contour in contours:
-        for point in contour:
-            if point[0][1] < height - 1 and (point[0][0] not in best_xs or point[0][1] > best_xs[point[0][0]]):
-                best_xs[point[0][0]] = point[0][1]
-    close_contour = np.empty((len(best_xs), 1, 2), dtype=contours[0].dtype)
-    for i, (x, y) in enumerate(best_xs.items()):
-        close_contour[i] = np.array([[x, y]])
-    return close_contour
+    if len(contours) > 0:
+        best_xs = {}
+        for contour in contours:
+            for point in contour:
+                if point[0][1] < height - 1 and (point[0][0] not in best_xs or point[0][1] > best_xs[point[0][0]]):
+                    best_xs[point[0][0]] = point[0][1]
+        close_contour = np.empty((len(best_xs), 1, 2), dtype=contours[0].dtype)
+        for i, (x, y) in enumerate(best_xs.items()):
+            close_contour[i] = np.array([[x, y]])
+        return close_contour
 
 
 def farthest_x_y(contour):
