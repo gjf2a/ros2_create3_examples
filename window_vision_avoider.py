@@ -89,12 +89,12 @@ class VisionBot(runner.HdxNode):
             
     def ir_callback(self, msg):
         ir_values = [reading.value for reading in msg.readings]
-        if max(ir_values) > 50:
-            print("IR detects trouble - avoiding")
+        if self.use_vision() and max(ir_values) > 50:
             mid = len(ir_values) // 2
             self.avoid_direction = math.pi / 4
             if sum(ir_values[:mid]) < sum(ir_values[-mid:]):
                 self.avoid_direction *= -1.0
+            print("IR detects trouble - avoiding", self.avoid_direction)
 
     def bump_callback(self, msg):
         if self.use_vision():
