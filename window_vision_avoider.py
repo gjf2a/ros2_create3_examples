@@ -46,7 +46,7 @@ class VisionBot(runner.HdxNode):
         super().__init__('wheel_publisher')
         self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
         self.buttons = self.create_subscription(InterfaceButtons, namespace + '/interface_buttons', self.button_callback, qos_profile_sensor_data)
-        self.irs = self.create_subscription(IrIntensityVector, f"{namespace}/ir_intensity", self.ir_callback, qos_profile_sensor_data)
+        #self.irs = self.create_subscription(IrIntensityVector, f"{namespace}/ir_intensity", self.ir_callback, qos_profile_sensor_data)
         self.bumps = self.create_subscription(HazardDetectionVector, f"{namespace}/hazard_detection", self.bump_callback, qos_profile_sensor_data)
         self.wheel_status = self.create_subscription(WheelStatus, f'{namespace}/wheel_status', self.wheel_status_callback, qos_profile_sensor_data)
         timer_period = 0.10 # seconds
@@ -108,7 +108,6 @@ class VisionBot(runner.HdxNode):
             self.actively_turning = True
             print("Starting turn")
             self.rotator.send_goal(self.avoid_direction)
-            rclpy.spin_once(self.rotator)
 
     def turn_finished_callback(self, future):
         self.avoid_direction = None
@@ -140,6 +139,8 @@ class FloorContour(runner.OpenCvCode):
 
 
 if __name__ == '__main__':
+    rclpy.init()
     msg_queue = Queue()
     print(f"Starting up {sys.argv[1]}...")
-    runner.run_vision_node(lambda: VisionBot(msg_queue, f'/{sys.argv[1]}'), FloorContour(msg_queue))
+    bot = VisionBot(msg_queue, f'/{sys.argv[1]}')
+    runner.run_vision_multiple_nodes(FloorContour(msg_queue), bot, bot.rotator)

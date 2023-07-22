@@ -186,8 +186,10 @@ def run_multiple_nodes(*nodes):
 
 # call rclpy.init() before invoking
 def run_vision_multiple_nodes(cv_object, *nodes):
-    vt = threading.Thread(target=lambda cv: cv.loop(finished), args=(cv_object,)
+    finished = threading.Event()
+    vt = threading.Thread(target=lambda cv: cv.loop(finished), args=(cv_object,))
     vt.start()
+    executor = rclpy.executors.MultiThreadedExecutor()
     for node in nodes:
         executor.add_node(node)
     executor_thread = threading.Thread(target=executor.spin, daemon=True)
