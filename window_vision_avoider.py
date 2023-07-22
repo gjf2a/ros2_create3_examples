@@ -46,7 +46,7 @@ class VisionBot(runner.HdxNode):
         super().__init__('wheel_publisher')
         self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
         self.buttons = self.create_subscription(InterfaceButtons, namespace + '/interface_buttons', self.button_callback, qos_profile_sensor_data)
-        #self.irs = self.create_subscription(IrIntensityVector, f"{namespace}/ir_intensity", self.ir_callback, qos_profile_sensor_data)
+        self.irs = self.create_subscription(IrIntensityVector, f"{namespace}/ir_intensity", self.ir_callback, qos_profile_sensor_data)
         self.bumps = self.create_subscription(HazardDetectionVector, f"{namespace}/hazard_detection", self.bump_callback, qos_profile_sensor_data)
         self.wheel_status = self.create_subscription(WheelStatus, f'{namespace}/wheel_status', self.wheel_status_callback, qos_profile_sensor_data)
         timer_period = 0.10 # seconds
@@ -90,16 +90,11 @@ class VisionBot(runner.HdxNode):
     def ir_callback(self, msg):
         ir_values = [reading.value for reading in msg.readings]
         if max(ir_values) > 50:
-            if self.use_vision():
-                mid = len(ir_values) // 2
-                self.avoid_direction = math.pi / 4
-                if sum(ir_values[:mid]) < sum(ir_values[-mid:]):
-                    self.avoid_direction *= -1.0
-                print("avoid start", sum(ir_values[:mid]), sum(ir_values[-mid:]))
-            self.publisher.publish(runner.turn_twist(self.avoid_direction))
-            print("avoiding", ir_values, self.avoid_direction)
-        else:
-            self.avoid_direction = None
+            print("IR detects trouble - avoiding")
+            mid = len(ir_values) // 2
+            self.avoid_direction = math.pi / 4
+            if sum(ir_values[:mid]) < sum(ir_values[-mid:]):
+                self.avoid_direction *= -1.0
 
     def bump_callback(self, msg):
         if self.use_vision():
@@ -112,8 +107,6 @@ class VisionBot(runner.HdxNode):
             print("Starting turn")
             self.rotator.send_goal(self.avoid_direction)
             rclpy.spin_once(self.rotator)
-        else:
-            print("Waiting on wheels")
 
     def turn_finished_callback(self, future):
         self.avoid_direction = None
