@@ -31,6 +31,10 @@ class RotateActionClient(Node):
             self._get_result_future = goal_handle.get_result_async()
             self._get_result_future.add_done_callback(self.callback)
 
+    def spin_thread(self):
+        st = threading.Thread(target=lambda ac: rclpy.spin(ac), args=(self,))
+        st.start()
+
 
 def example_callback(future):
     print("Entering example_callback")
@@ -43,9 +47,8 @@ def main(args=None, namespace=''):
     rclpy.init(args=args)
 
     action_client = RotateActionClient(example_callback, namespace)
+    action_client.spin_thread()
     action_client.send_goal(math.pi)
-    st = threading.Thread(target=lambda ac: rclpy.spin(ac), args=(action_client,))
-    st.start()
     input("Enter a key when you are ready to send a second goal")
     action_client.send_goal(math.pi / 2)
     input("Enter a key when you are ready to shut down")

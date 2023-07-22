@@ -36,7 +36,6 @@ class BumpTurnBot(runner.HdxNode):
                 goal *= -1
             print(f"Starting turn to {goal} after {self.bump}")
             self.rotator.send_goal(goal)
-            rclpy.spin_once(self.rotator)
 
     def turn_finished_callback(self, future):
         self.bump = None
@@ -49,4 +48,6 @@ class BumpTurnBot(runner.HdxNode):
 
 
 if __name__ == '__main__':
-    runner.run_single_node(lambda: BumpTurnBot(f'/{sys.argv[1]}'))
+    rclpy.init()
+    bot = BumpTurnBot(f'/{sys.argv[1]}')
+    runner.run_multiple_nodes(bot, bot.rotator)

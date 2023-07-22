@@ -150,6 +150,7 @@ def input_thread(finished, ros_ready):
     ros_ready.wait()
     user = input("Type anything to exit")
     finished.set()
+    rclpy.shutdown()
 
 
 def spin_thread(finished, ros_ready, node_maker):
@@ -168,3 +169,29 @@ def spin_thread(finished, ros_ready, node_maker):
     node.reset()
     rclpy.shutdown()
     print("ROS2 has shut down")
+
+
+# Inspired by: https://answers.ros.org/question/377848/spinning-multiple-nodes-across-multiple-threads/?answer=377861#post-id-377861
+# call rclpy.init() before invoking
+def run_multiple_nodes(*nodes):
+    executor = rclpy.executors.MultiThreadedExecutor()
+    for node in nodes:
+        executor.add_node(node)
+    executor_thread = threading.Thread(target=executor.spin, daemon=True)
+    executor_thread.start()
+    user = input("Type anything to exit")
+    rclpy.shutdown()
+    executor_thread.join()
+
+
+# call rclpy.init() before invoking
+def run_vision_multiple_nodes(cv_object, *nodes):
+    vt = threading.Thread(target=lambda cv: cv.loop(finished), args=(cv_object,)
+    vt.start()
+    for node in nodes:
+        executor.add_node(node)
+    executor_thread = threading.Thread(target=executor.spin, daemon=True)
+    executor_thread.start()
+    vt.join()
+    rclpy.shutdown()
+    executor_thread.join()
