@@ -40,7 +40,7 @@ class BumpTurnBot(runner.HdxNode):
     def turn_finished_callback(self, future):
         self.bump = None
         self.turning = False
-        print("finished with turn")
+        print("finished with turn", future.result().result)
 
     def wheel_status_callback(self, msg):
         self.record_first_callback()

@@ -42,11 +42,11 @@ def defuzzify(value, zero, one):
 
 
 class VisionBot(runner.HdxNode):
-    def __init__(self, img_queue, namespace: str = ""):
+    def __init__(self, img_queue, namespace: str = "", use_ir=False):
         super().__init__('wheel_publisher')
         self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
         self.buttons = self.create_subscription(InterfaceButtons, namespace + '/interface_buttons', self.button_callback, qos_profile_sensor_data)
-        #self.irs = self.create_subscription(IrIntensityVector, f"{namespace}/ir_intensity", self.ir_callback, qos_profile_sensor_data)
+        self.irs = self.create_subscription(IrIntensityVector, f"{namespace}/ir_intensity", self.ir_callback, qos_profile_sensor_data)
         self.bumps = self.create_subscription(HazardDetectionVector, f"{namespace}/hazard_detection", self.bump_callback, qos_profile_sensor_data)
         self.wheel_status = self.create_subscription(WheelStatus, f'{namespace}/wheel_status', self.wheel_status_callback, qos_profile_sensor_data)
         timer_period = 0.10 # seconds
@@ -57,6 +57,8 @@ class VisionBot(runner.HdxNode):
         self.avoid_direction = None
         self.actively_turning = False
         self.rotator = RotateActionClient(self.turn_finished_callback, namespace)
+
+        self.use_ir = use_ir
 
     def use_vision(self):
         return self.avoid_direction is None
@@ -76,6 +78,8 @@ class VisionBot(runner.HdxNode):
                 print("Contour finder failed")
             elif best == "QUIT":
                 self.quit()
+            elif type(best) == runner.CvKey:
+                print("Typed", best)
             elif self.use_vision():
                 x_center = sum(p[0][0] for p in best) / len(best)
                 y_center = sum(p[0][1] for p in best) / len(best)
@@ -92,12 +96,12 @@ class VisionBot(runner.HdxNode):
             
     def ir_callback(self, msg):
         ir_values = [reading.value for reading in msg.readings]
-        if self.use_vision() and max(ir_values) > 50:
+        if self.use_ir and self.use_vision() and max(ir_values) > 50:
             mid = len(ir_values) // 2
             self.avoid_direction = math.pi / 4
             if sum(ir_values[:mid]) < sum(ir_values[-mid:]):
                 self.avoid_direction *= -1.0
-            print("IR detects trouble - avoiding", self.avoid_direction)
+            print("IR detects trouble - avoiding", ir_values, self.avoid_direction)
 
     def bump_callback(self, msg):
         if self.use_vision():
@@ -114,7 +118,7 @@ class VisionBot(runner.HdxNode):
     def turn_finished_callback(self, future):
         self.avoid_direction = None
         self.actively_turning = False
-        print("Finished with turn")
+        print("Finished with turn", future.result().result)
 
 
 def find_floor_contour(frame, cap, kernel_midwidth):
@@ -148,5 +152,5 @@ if __name__ == '__main__':
     rclpy.init()
     msg_queue = Queue()
     print(f"Starting up {sys.argv[1]}...")
-    bot = VisionBot(msg_queue, f'/{sys.argv[1]}')
+    bot = VisionBot(msg_queue, f'/{sys.argv[1]}', use_ir='-ir' in sys.argv)
     runner.run_vision_multiple_nodes(FloorContour(msg_queue), bot, bot.rotator)
