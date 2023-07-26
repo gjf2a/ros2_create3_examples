@@ -26,6 +26,7 @@ class IrTurnNode(runner.HdxNode):
 
     def ir_callback(self, msg):
         self.record_first_callback()
+        ir_values = [reading.value for reading in msg.readings]
         max_ir = max(ir_values)
         if max_ir > self.ir_too_close:
             if self.turn_started:
@@ -41,6 +42,9 @@ class IrTurnNode(runner.HdxNode):
 
     def start_turn_until_clear(self):
         self.turn_started = True
+
+    def add_self_recursive(self, executor):
+        executor.add_node(self)
 
 
 class IrTurnBot(runner.HdxNode):
@@ -67,8 +71,12 @@ class IrTurnBot(runner.HdxNode):
         self.record_first_callback()
         self.last_wheel_status = msg
 
+    def add_self_recursive(self, executor):
+        executor.add_node(self)
+        executor.add_node(self.ir_node)
+
 
 if __name__ == '__main__':
     rclpy.init()
     bot = IrTurnBot(f'/{sys.argv[1]}')
-    runner.run_multiple_nodes(bot, bot.ir_node)
+    runner.run_recursive_node(bot)

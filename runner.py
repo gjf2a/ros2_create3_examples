@@ -184,6 +184,16 @@ def run_multiple_nodes(*nodes):
     executor_thread.join()
 
 
+def run_recursive_node(recursive_node):
+    executor = rclpy.executors.MultiThreadedExecutor()
+    recursive_node.add_self_recursive(executor)
+    executor_thread = threading.Thread(target=executor.spin, daemon=True)
+    executor_thread.start()
+    user = input("Type anything to exit")
+    rclpy.shutdown()
+    executor_thread.join()
+
+
 # call rclpy.init() before invoking
 def run_vision_multiple_nodes(cv_object, *nodes):
     finished = threading.Event()

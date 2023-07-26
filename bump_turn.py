@@ -45,6 +45,10 @@ class BumpTurnNode(runner.HdxNode):
         self.bump = None
         self.turning = False
 
+    def add_self_recursive(self, executor):
+        executor.add_node(self)
+        executor.add_node(self.rotator)
+
 
 class BumpTurnBot(runner.HdxNode):
     def __init__(self, namespace: str = ""):
@@ -70,8 +74,12 @@ class BumpTurnBot(runner.HdxNode):
             elif self.wheels_stopped():
                 self.bump_node.start_turn()
 
+    def add_self_recursive(self, executor):
+        executor.add_node(self)
+        executor.add_node(self.bump_node)
+
 
 if __name__ == '__main__':
     rclpy.init()
     bot = BumpTurnBot(f'/{sys.argv[1]}')
-    runner.run_multiple_nodes(bot, bot.bump_node, bot.bump_node.rotator)
+    runner.run_recursive_node(bot)
