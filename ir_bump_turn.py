@@ -21,6 +21,8 @@ class IrBumpTurnBot(runner.HdxNode):
         self.bump_node = BumpTurnNode(namespace)
         self.create_timer(0.10, self.timer_callback)
 
+# Continue work from here down
+
     def timer_callback(self):
         self.record_first_callback()
         if not self.ir_node.is_turning():
