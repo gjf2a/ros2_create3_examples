@@ -58,7 +58,7 @@ class HdxNode(Node):
     def record_first_callback(self):
         if self.first_callback_time is None:
             self.first_callback_time = self.elapsed_time()
-            print(f"ROS2 active at {self.first_callback_time}")
+            print(f"First ROS2 callback for {self.get_name()} at {self.first_callback_time}")
 
     def ros_issuing_callbacks(self):
         return self.first_callback_time is not None

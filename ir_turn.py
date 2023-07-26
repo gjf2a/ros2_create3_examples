@@ -26,7 +26,6 @@ class IrTurnNode(runner.HdxNode):
 
     def ir_callback(self, msg):
         self.record_first_callback()
-        ir_values = [reading.value for reading in msg.readings]
         max_ir = max(ir_values)
         if max_ir > self.ir_too_close:
             if self.turn_started:
