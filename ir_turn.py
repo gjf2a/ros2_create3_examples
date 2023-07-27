@@ -73,7 +73,7 @@ class IrTurnBot(runner.HdxNode):
 
     def add_self_recursive(self, executor):
         executor.add_node(self)
-        executor.add_node(self.ir_node)
+        self.ir_node.add_self_recursive(executor)
 
 
 if __name__ == '__main__':
