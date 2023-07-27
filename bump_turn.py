@@ -33,6 +33,8 @@ class BumpTurnNode(runner.HdxNode):
         self.started = True
         if self.bump is None and not self.turning:
             self.bump = runner.find_bump_from(msg.detections)
+            if self.bump:
+                print(f"Detected {self.bump}")
             
     def start_turn(self):
         goal = self.avoid_angle
@@ -40,8 +42,10 @@ class BumpTurnNode(runner.HdxNode):
             goal *= -1
         self.rotator.send_goal(goal)
         self.turning = True
+        print(f"Sending goal: {goal}")
 
     def turn_finished_callback(self, future):
+        print("BumpTurnNode: Turn finished")
         self.bump = None
         self.turning = False
 
@@ -76,7 +80,7 @@ class BumpTurnBot(runner.HdxNode):
 
     def add_self_recursive(self, executor):
         executor.add_node(self)
-        executor.add_node(self.bump_node)
+        self.bump_node.add_self_recursive(executor)
 
 
 if __name__ == '__main__':
