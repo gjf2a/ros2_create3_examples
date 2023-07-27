@@ -6,7 +6,6 @@ from irobot_create_msgs.msg import IrIntensityVector, WheelStatus, WheelTicks
 from rclpy.qos import qos_profile_sensor_data
 from geometry_msgs.msg import Twist
 
-from action_demo import RotateActionClient
 from ir_turn import IrTurnNode
 from bump_turn import BumpTurnNode
 
@@ -23,8 +22,6 @@ class IrBumpTurnBot(runner.HdxNode):
 
     def timer_callback(self):
         self.record_first_callback()
-        #print(f"bump started? {self.bump_node.has_started()} clear? {self.bump_node.bump_clear()} turning? {self.bump_node.is_turning()}")
-        #print(f"ir clear? {self.ir_node.ir_clear()} turning? {self.ir_node.is_turning()}")
         if self.bump_node.has_started() and not self.bump_node.is_turning():
             if self.bump_node.bump_clear():
                 if not self.ir_node.is_turning():
