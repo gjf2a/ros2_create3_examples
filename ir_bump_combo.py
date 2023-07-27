@@ -2,7 +2,7 @@ import sys
 import math
 import runner
 import rclpy
-from irobot_create_msgs.msg import IrIntensityVector, WheelStatus, WheelTicks
+from irobot_create_msgs.msg import IrIntensityVector
 from rclpy.qos import qos_profile_sensor_data
 from geometry_msgs.msg import Twist
 
@@ -10,12 +10,10 @@ from ir_turn import IrTurnNode
 from bump_turn import BumpTurnNode
 
 
-class IrBumpTurnBot(runner.HdxNode):
+class IrBumpTurnBot(runner.WheelMonitorNode):
     def __init__(self, namespace: str = "", ir_limit=50):
-        super().__init__('ir_bump_turn_bot')
+        super().__init__('ir_bump_turn_bot', namespace)
         self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
-        self.wheel_status = self.create_subscription(WheelStatus, f'{namespace}/wheel_status', self.wheel_status_callback, qos_profile_sensor_data)
-        self.last_wheel_status = None
         self.ir_node = IrTurnNode(namespace, ir_limit)
         self.bump_node = BumpTurnNode(namespace)
         self.create_timer(0.10, self.timer_callback)
@@ -31,13 +29,6 @@ class IrBumpTurnBot(runner.HdxNode):
                         self.ir_node.start_turn_until_clear()
             elif self.wheels_stopped():
                 self.bump_node.start_turn()
-
-    def wheels_stopped(self):
-        return self.last_wheel_status is not None and self.last_wheel_status.current_ma_left == 0 and self.last_wheel_status.current_ma_right == 0
-
-    def wheel_status_callback(self, msg):
-        self.record_first_callback()
-        self.last_wheel_status = msg
 
     def add_self_recursive(self, executor):
         executor.add_node(self)

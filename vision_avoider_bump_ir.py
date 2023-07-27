@@ -6,8 +6,6 @@ import cv2
 import math
 
 from geometry_msgs.msg import Twist
-from irobot_create_msgs.msg import InterfaceButtons
-from irobot_create_msgs.msg import IrIntensityVector, HazardDetectionVector, WheelStatus
 from rclpy.qos import qos_profile_sensor_data
 from action_demo import RotateActionClient
 
@@ -44,17 +42,14 @@ def defuzzify(value, zero, one):
         return zero + value * (one - zero)
 
 
-class VisionBot(runner.HdxNode):
+class VisionBot(runner.WheelMonitorNode):
     def __init__(self, img_queue, namespace: str = "", ir_limit=50):
-        super().__init__('vision_ir_bump_avoid_bot')
+        super().__init__('vision_ir_bump_avoid_bot', namespace)
         self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
-        self.buttons = self.create_subscription(InterfaceButtons, namespace + '/interface_buttons', self.button_callback, qos_profile_sensor_data)
-        self.wheel_status = self.create_subscription(WheelStatus, f'{namespace}/wheel_status', self.wheel_status_callback, qos_profile_sensor_data)
         timer_period = 0.10 # seconds
         self.create_timer(timer_period, self.timer_callback)
 
         self.img_queue = img_queue
-        self.last_wheel_status = None
         self.ir_node = IrTurnNode(namespace, ir_limit)
         self.bump_node = BumpTurnNode(namespace)
 
@@ -65,13 +60,6 @@ class VisionBot(runner.HdxNode):
 
     def use_vision(self):
         return self.bump_node.bump_clear() and self.ir_node.ir_clear()
-
-    def wheels_stopped(self):
-        return self.last_wheel_status is not None and self.last_wheel_status.current_ma_left == 0 and self.last_wheel_status.current_ma_right == 0
-
-    def wheel_status_callback(self, msg):
-        self.record_first_callback()
-        self.last_wheel_status = msg
 
     def timer_callback(self):
         self.record_first_callback()
@@ -102,10 +90,6 @@ class VisionBot(runner.HdxNode):
                     self.bump_node.start_turn()
                     print("Starting bump turn")
 
-    def button_callback(self, msg: InterfaceButtons):
-        if msg.button_1.is_pressed or msg.button_2.is_pressed or msg.button_power.is_pressed:
-            self.quit()
-            
 
 def find_floor_contour(frame, cap, kernel_midwidth):
     kernel, min_space_width = kernel_midwidth
