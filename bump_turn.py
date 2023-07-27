@@ -2,7 +2,7 @@ import sys
 import math
 import runner
 import rclpy
-from irobot_create_msgs.msg import HazardDetectionVector, WheelStatus, WheelTicks
+from irobot_create_msgs.msg import HazardDetectionVector
 from rclpy.qos import qos_profile_sensor_data
 from geometry_msgs.msg import Twist
 
@@ -54,21 +54,12 @@ class BumpTurnNode(runner.HdxNode):
         executor.add_node(self.rotator)
 
 
-class BumpTurnBot(runner.HdxNode):
+class BumpTurnBot(runner.WheelMonitorNode):
     def __init__(self, namespace: str = ""):
-        super().__init__('bump_turn_bot')
+        super().__init__('bump_turn_bot', namespace)
         self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
-        self.wheel_status = self.create_subscription(WheelStatus, f'{namespace}/wheel_status', self.wheel_status_callback, qos_profile_sensor_data)
-        self.last_wheel_status = None
         self.bump_node = BumpTurnNode(namespace)
         self.create_timer(0.10, self.timer_callback)
-
-    def wheels_stopped(self):
-        return self.last_wheel_status is not None and self.last_wheel_status.current_ma_left == 0 and self.last_wheel_status.current_ma_right == 0
-
-    def wheel_status_callback(self, msg):
-        self.record_first_callback()
-        self.last_wheel_status = msg
 
     def timer_callback(self):
         self.record_first_callback()

@@ -7,6 +7,8 @@ import cv2
 import math
 
 from geometry_msgs.msg import Twist
+from irobot_create_msgs.msg import WheelStatus
+from rclpy.qos import qos_profile_sensor_data
 
 
 def straight_twist(vel):
@@ -74,6 +76,20 @@ class HdxNode(Node):
 
     def quitting(self):
         return self.done
+
+
+class WheelMonitorNode(HdxNode):
+    def __init__(self, name, namespace):
+        super().__init__(name)
+        self.wheel_status = self.create_subscription(WheelStatus, f'{namespace}/wheel_status', self.wheel_status_callback, qos_profile_sensor_data)
+        self.last_wheel_status = None
+
+    def wheels_stopped(self):
+        return self.last_wheel_status is not None and self.last_wheel_status.current_ma_left == 0 and self.last_wheel_status.current_ma_right == 0
+
+    def wheel_status_callback(self, msg):
+        self.record_first_callback()
+        self.last_wheel_status = msg
 
 
 def run_single_node(node_maker):
