@@ -97,8 +97,10 @@ class VisionBot(runner.HdxNode):
                             self.publisher.publish(msg)
                         elif self.wheels_stopped():
                             self.ir_node.start_turn_until_clear()
-                    elif self.wheels_stopped():
-                        self.bump_node.start_turn()
+                            print("Starting IR turn")
+                elif self.wheels_stopped():
+                    self.bump_node.start_turn()
+                    print("Starting bump turn")
 
     def button_callback(self, msg: InterfaceButtons):
         if msg.button_1.is_pressed or msg.button_2.is_pressed or msg.button_power.is_pressed:
