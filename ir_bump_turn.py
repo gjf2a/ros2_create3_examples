@@ -21,15 +21,19 @@ class IrBumpTurnBot(runner.HdxNode):
         self.bump_node = BumpTurnNode(namespace)
         self.create_timer(0.10, self.timer_callback)
 
-# Continue work from here down
-
     def timer_callback(self):
         self.record_first_callback()
-        if not self.ir_node.is_turning():
-            if self.ir_node.ir_clear():
-                self.publisher.publish(runner.straight_twist(0.5))
+        #print(f"bump started? {self.bump_node.has_started()} clear? {self.bump_node.bump_clear()} turning? {self.bump_node.is_turning()}")
+        #print(f"ir clear? {self.ir_node.ir_clear()} turning? {self.ir_node.is_turning()}")
+        if self.bump_node.has_started() and not self.bump_node.is_turning():
+            if self.bump_node.bump_clear():
+                if not self.ir_node.is_turning():
+                    if self.ir_node.ir_clear():
+                        self.publisher.publish(runner.straight_twist(0.5))
+                    elif self.wheels_stopped():
+                        self.ir_node.start_turn_until_clear()
             elif self.wheels_stopped():
-                self.ir_node.start_turn_until_clear()
+                self.bump_node.start_turn()
 
     def wheels_stopped(self):
         return self.last_wheel_status is not None and self.last_wheel_status.current_ma_left == 0 and self.last_wheel_status.current_ma_right == 0
@@ -38,8 +42,13 @@ class IrBumpTurnBot(runner.HdxNode):
         self.record_first_callback()
         self.last_wheel_status = msg
 
+    def add_self_recursive(self, executor):
+        executor.add_node(self)
+        self.bump_node.add_self_recursive(executor)
+        self.ir_node.add_self_recursive(executor)
+
 
 if __name__ == '__main__':
     rclpy.init()
     bot = IrBumpTurnBot(f'/{sys.argv[1]}')
-    runner.run_multiple_nodes(bot, bot.ir_node)
+    runner.run_recursive_node(bot)
