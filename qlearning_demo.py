@@ -85,4 +85,4 @@ if __name__ == '__main__':
     demo_node = QDemoNode(namespace)
     main_node = QBot(demo_node, params)
     runner.run_recursive_node(main_node)
-    
+    main_node.print_status()

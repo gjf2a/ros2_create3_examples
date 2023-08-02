@@ -21,10 +21,17 @@ class QBot(runner.HdxNode):
                 self.total_reward += reward
                 self.action = self.q_table.sense_act_learn(state, reward)
                 self.qnode.act(self.action)
+                print(f"{self.loops}: s:{state} a:{self.action} r:{reward} ({self.total_reward})")
 
     def add_self_recursive(self, executor):
         executor.add_node(self)
         self.qnode.add_self_recursive(executor)
+
+    def print_status(self):
+        print(f"Total updates: {self.loops}")
+        print(f"Total reward:  {self.total_reward}")
+        print(f"q-values: {self.q_table.q}")
+        print(f"visits:   {self.q_table.visits}")
     
 
 class QParameters:
