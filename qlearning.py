@@ -1,36 +1,34 @@
 import random
+import runner
 
 class QBot(runner.HdxNode):
-    def __init__(self, params, namespace):
-        super().__init__('q-node')
-        self.sense_node = params.sense_node
-        self.namespace = namespace
+    def __init__(self, qnode, params):
+        super().__init__('q_bot')
+        self.qnode = qnode
         self.params = params
-        self.q_table = QTable(params)
+        self.q_table = QTable(qnode, params)
         self.loops = 0
         self.total_reward = 0
         self.action = 0
         self.create_timer(0.10, self.timer_callback)
-        self.last_sense_update = 0
 
     def timer_callback(self):
-        last_sense = self.sense_node.last_update_time()
-        if last_sense > self.last_sense_update:
-            self.last_sense_update = last_sense
-            state = params.state_func(self.sense_node)
-            reward = params.reward_func(self.sense_node, state, self.action)
-            self.total_reward += reward
-            self.action = self.q_table.sense_act_learn(state, reward)
-            self.actions[self.action](self.namespace)
+        if not self.qnode.action_in_progress():
+            state = self.qnode.read_state()
+            if state is not None:
+                self.loops += 1
+                reward = self.qnode.read_reward()
+                self.total_reward += reward
+                self.action = self.q_table.sense_act_learn(state, reward)
+                self.qnode.act(self.action)
 
+    def add_self_recursive(self, executor):
+        executor.add_node(self)
+        self.qnode.add_self_recursive(executor)
+    
 
 class QParameters:
-    def __init__(self, sense_node):
-        self.sense_node = sense_node
-        self.actions = []
-        self.num_states = 0
-        self.state_func = lambda r: 0
-        self.reward_func = lambda r, state, action: 0
+    def __init__(self):
         self.target_visits = 1
         self.epsilon = 0.0
         self.discount = 0.5
@@ -38,9 +36,9 @@ class QParameters:
 
 
 class QTable:
-    def __init__(self, params):
-        self.q = [[0.0] * len(params.actions) for i in range(params.num_states)]
-        self.visits = [[0] * len(params.actions) for i in range(params.num_states)]
+    def __init__(self, qnode, params):
+        self.q = [[0.0] * qnode.num_actions() for i in range(qnode.num_states())]
+        self.visits = [[0] * qnode.num_actions() for i in range(qnode.num_states())]
         self.target_visits = params.target_visits
         self.epsilon = params.epsilon
         self.discount = params.discount
