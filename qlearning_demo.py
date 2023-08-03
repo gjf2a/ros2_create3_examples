@@ -36,6 +36,8 @@ class QDemoNode(runner.HdxNode):
         self.state = None
         if state == 2:
             self.reward = -100
+        elif state == 1:
+            self.reward = -10
         elif self.last_action == 0:
             self.reward = 1
         else:
@@ -82,6 +84,7 @@ if __name__ == '__main__':
     rclpy.init()
     namespace = f'/{sys.argv[1]}' if len(sys.argv) >= 2 else ''
     params = QParameters()
+    params.epsilon = 0.05
     demo_node = QDemoNode(namespace)
     main_node = QBot(demo_node, params)
     runner.run_recursive_node(main_node)
