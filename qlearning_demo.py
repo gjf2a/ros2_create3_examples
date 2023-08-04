@@ -48,13 +48,12 @@ class QDemoNode(runner.HdxNode):
         return self.reward
 
     def act(self, action_num):
-        if self.pending_action is None:
-            action = self.action_twists[action_num]
-            if action_num == self.last_action:
-                self.publisher.publish(action)
-            else:
-                self.last_action = action_num
-                self.pending_action = action
+        action = self.action_twists[action_num]
+        if action_num == self.last_action:
+            self.publisher.publish(action)
+        elif self.pending_action is None:
+            self.last_action = action_num
+            self.pending_action = action
 
     def wheel_status_callback(self, msg):
         self.record_first_callback()
