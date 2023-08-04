@@ -1,6 +1,11 @@
 import random
 import runner
 
+from irobot_create_msgs.msg import WheelStatus
+from rclpy.qos import qos_profile_sensor_data
+from geometry_msgs.msg import Twist
+
+
 class QBot(runner.HdxNode):
     def __init__(self, qnode, params):
         super().__init__('q_bot')
@@ -32,6 +37,58 @@ class QBot(runner.HdxNode):
         print(f"Total reward:  {self.total_reward}")
         print(f"q-values: {self.q_table.q}")
         print(f"visits:   {self.q_table.visits}")
+
+
+class QNodeTemplate(runner.HdxNode):
+    def __init__(self, node_name, namespace, *action_twists):
+        super().__init__(node_name)
+        self.wheel_status = self.create_subscription(WheelStatus, f'{namespace}/wheel_status', self.wheel_status_callback, qos_profile_sensor_data)
+        self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
+        self.action_twists = action_twists
+        self.last_action = None
+        self.pending_action = None
+        self.state = None
+        self.reward = None
+
+    def num_actions(self):
+        return len(self.action_twists)
+
+    def num_states(self):
+        raise NotImplementedError("Override this to return the number of states. Be sure to set self.state appropriately in your sensor callbacks.")
+
+    def read_state(self):
+        state = self.state
+        self.state = None
+        self.reward = self.set_reward(state)
+        return state
+
+    def set_reward(self, state):
+        raise NotImplementedError("Using the 'state' variable along with any other stored state you would like, return the current reward value.")
+
+    def read_reward(self):
+        return self.reward
+
+    def act(self, action_num):
+        action = self.action_twists[action_num]
+        if action_num == self.last_action:
+            self.publisher.publish(action)
+        elif self.pending_action is None:
+            self.last_action = action_num
+            self.pending_action = action
+
+    def wheel_status_callback(self, msg):
+        self.record_first_callback()
+        if self.pending_action is not None and msg.current_ma_left == 0 and msg.current_ma_right == 0:
+            self.publisher.publish(self.pending_action)
+            self.pending_action = None
+
+
+    def action_in_progress(self):
+        return self.pending_action is not None
+
+    def add_self_recursive(self, executor):
+        executor.add_node(self)
+  
     
 
 class QParameters:
