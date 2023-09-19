@@ -6,7 +6,7 @@ from irobot_create_msgs.msg import HazardDetectionVector, IrIntensityVector
 from rclpy.qos import qos_profile_sensor_data
 from geometry_msgs.msg import Twist
 
-from action_demo import RotateActionClient
+from runner import RotateActionClient
 
 
 class IrBumpTurnNode(runner.HdxNode):

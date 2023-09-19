@@ -10,6 +10,9 @@ from geometry_msgs.msg import Twist
 from irobot_create_msgs.msg import WheelStatus
 from rclpy.qos import qos_profile_sensor_data
 
+from rclpy.action import ActionClient
+from irobot_create_msgs.action import RotateAngle, DriveDistance
+
 
 def straight_twist(vel):
     t = Twist()
@@ -238,3 +241,59 @@ def run_vision_multiple_nodes(cv_object, *nodes):
     vt.join()
     rclpy.shutdown()
     executor_thread.join()
+
+
+class CustomActionClient(Node):
+    def __init__(self, name, py_action_type, ros2_action_type, callback, namespace):
+        super().__init__(name)
+        self._action_client = ActionClient(self, py_action_type, f'{namespace}/{ros2_action_type}')
+        self.callback = callback
+        self.goal_handle = None
+
+    def send_goal(self, goal_msg):
+        self._action_client.wait_for_server()
+        future = self._action_client.send_goal_async(goal_msg)
+        future.add_done_callback(self.goal_response_callback)
+
+    def goal_response_callback(self, future):
+        self.goal_handle = future.result()
+        if self.goal_handle.accepted:
+            print("Goal accepted.")
+            self._get_result_future = self.goal_handle.get_result_async()
+            self._get_result_future.add_done_callback(self.callback)
+        else:
+            print("Goal rejected...")
+
+    def cancel(self):
+        if self.goal_handle is not None:
+            future = self.goal_handle.cancel_goal()
+            if future:
+                print("Goal cancelled")
+            else:
+                print("Failed to cancel goal")
+
+    def spin_thread(self):
+        st = threading.Thread(target=lambda ac: rclpy.spin(ac), args=(self,))
+        st.start()
+
+
+class RotateActionClient(CustomActionClient):
+    def __init__(self, callback, namespace):
+        super().__init__("RotateActionClient", RotateAngle, 'rotate_angle', callback, namespace)
+        
+    def send_goal(self, goal_heading, radians_per_sec=1.0):
+        goal_msg = RotateAngle.Goal()
+        goal_msg.angle = goal_heading
+        goal_msg.max_rotation_speed = radians_per_sec
+        super().send_goal(goal_msg)
+
+
+class DriveDistanceClient(CustomActionClient):
+    def __init__(self, callback, namespace):
+        super().__init__("DriveDistanceClient", DriveDistance, 'drive_distance', callback, namespace)
+
+    def send_goal(self, goal_distance, meters_per_sec=0.3):
+        goal_msg = DriveDistance.Goal()
+        goal_msg.distance = goal_distance
+        goal_msg.max_translation_speed = meters_per_sec
+        super().send_goal(goal_msg)

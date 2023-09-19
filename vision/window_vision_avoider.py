@@ -1,5 +1,5 @@
-import runner
 import sys
+import runner
 import time
 import rclpy
 import cv2
@@ -9,7 +9,7 @@ from geometry_msgs.msg import Twist
 from irobot_create_msgs.msg import InterfaceButtons
 from irobot_create_msgs.msg import IrIntensityVector, HazardDetectionVector, WheelStatus
 from rclpy.qos import qos_profile_sensor_data
-from action_demo import RotateActionClient
+from runner import RotateActionClient
 
 from morph_contour_demo import Timer, find_contours, find_close_contour, find_contour_clusters, best_contour_cluster
 
@@ -59,6 +59,8 @@ class VisionBot(runner.HdxNode):
         self.rotator = RotateActionClient(self.turn_finished_callback, namespace)
 
         self.use_ir = use_ir
+
+        self.last_x_y = None
 
     def use_vision(self):
         return self.avoid_direction is None

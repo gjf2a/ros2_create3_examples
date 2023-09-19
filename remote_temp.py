@@ -12,6 +12,7 @@ from queue import Queue
 import threading
 
 from w1thermsensor import W1ThermSensor
+from w1thermsensor.units import Unit
 
 
 key2twist = {
@@ -23,13 +24,14 @@ key2twist = {
 
 
 class VisionBot(runner.HdxNode):
-    def __init__(self, img_queue, namespace: str = ""):
+    def __init__(self, img_queue, namespace: str = "", temp_file: str = "temps.txt"):
         super().__init__('wheel_publisher')
         self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
         self.buttons = self.create_subscription(InterfaceButtons, namespace + '/interface_buttons', self.button_callback, qos_profile_sensor_data)
         self.odom = self.create_subscription(Odometry, f'{namespace}/odom', self.odom_callback, qos_profile_sensor_data)
 
         self.temperature = W1ThermSensor()
+        self.temp_file = temp_file
 
         timer_period = 0.05 # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
@@ -38,13 +40,11 @@ class VisionBot(runner.HdxNode):
 
     def odom_callback(self, msg):
         self.record_first_callback()
-        try:
-            print(f"temperature: {self.temperature.get_temperature()}")
-        except:
-            print("Temperature not available yet")
-        print(f"pose: {msg.pose.pose.position}")
-        print(f"orientation: {msg.pose.pose.orientation}")
-        
+        with open(self.temp_file, 'a') as fout:
+            try:
+                fout.write(f"{self.temperature.get_temperature(Unit.DEGREES_F)} {msg.pose.pose.position} {time.time()}\n")
+            except:
+                print(f"update failed at {time.time()} {msg.pose.pose.position}")
 
     def timer_callback(self):
         self.record_first_callback()

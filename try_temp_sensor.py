@@ -4,11 +4,12 @@
 
 import time
 from w1thermsensor import W1ThermSensor
+from w1thermsensor.units import Unit
 
 sensor = W1ThermSensor()
 
 while True:
-    temperature = sensor.get_temperature()
+    temperature = sensor.get_temperature(Unit.DEGREES_F)
     print(f"The temperature is {temperature}")
     time.sleep(1)
 
