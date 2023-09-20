@@ -19,7 +19,7 @@ class Timer:
     
 
 
-def morph_contour_loop(video_port, kernel_side, min_space_width, queue):
+def morph_contour_loop(video_port, kernel_side, min_space_width, flood, queue):
     kernel_size = (kernel_side, kernel_side)
     cap = cv2.VideoCapture(video_port)
     timer = Timer()
@@ -28,6 +28,8 @@ def morph_contour_loop(video_port, kernel_side, min_space_width, queue):
         cv2.drawContours(frame, contours, -1, (0, 255, 0), 3)
         cv2.drawContours(frame, close_contour, -1, (255, 0, 0), 3)
         cv2.drawContours(frame, best, -1, (0, 0, 255), 3)
+        if flood:
+            flood_fill(frame, close_contour)
 
         # Display the resulting frame
         cv2.imshow('frame', frame)
@@ -86,6 +88,13 @@ def find_close_contour(contours, height):
         return close_contour
 
 
+def flood_fill(frame, close_contour):
+    color = (255, 0, 0, 10)
+    height, width, _ = frame.shape
+    for p in close_contour:
+        cv2.line(frame, (p[0][0], p[0][1]), (p[0][0], height), color, 1)
+
+
 def farthest_x_y(contour):
     min_y_index = np.argmin(contour[:, :, 1])
     return contour[min_y_index][0]
@@ -129,9 +138,27 @@ def contour_x_bounds(contour):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 3:
-        print("Usage: morph_contour_demo.py video_port kernel_side min_space_width")
+    if "-h" in sys.argv or "-help" in sys.argv:
+        print("Usage: morph_contour_demo.py [options]")
+        print("  -help:         This message")
+        print("  -vport=port:   Video port (default 0)")
+        print("  -kside=length: Kernel side length (default 11)")
+        print("  -best=width:   Width of best high point (default 10)")
+        print("  -flood:        Flood-fill up to close contour")
     else:
+        vport = 0
+        kside = 11
+        best = 10
+        flood = False
+        for arg in sys.argv:
+            if arg.startswith("-v"):
+                vport = int(arg.split("=")[1])
+            elif arg.startswith("-k"):
+                kside = int(arg.split("=")[1])
+            elif arg.startswith("-b"):
+                best = int(arg.split("=")[1])
+            elif arg.startswith("-f"):
+                flood = True
         queue = Queue()
-        morph_contour_loop(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]), queue)
+        morph_contour_loop(vport, kside, best, flood, queue)
 
