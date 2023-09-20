@@ -38,7 +38,6 @@ class IrBumpTurnNode(runner.HdxNode):
             self.avoid_direction = self.turn_velocity
             if 'left' in bump:
                 self.avoid_direction *= -1.0
-            print(f"Bump: avoid_direction: {self.avoid_direction} time: {time.time()}")
 
     def ir_callback(self, msg):
         self.record_first_callback()
@@ -48,18 +47,15 @@ class IrBumpTurnNode(runner.HdxNode):
             if self.turn_requested:
                 self.publisher.publish(runner.turn_twist(self.avoid_direction))
                 self.turn_started = True
-                print("Turning")
             else:
                 mid = len(ir_values) // 2
                 self.avoid_direction = self.turn_velocity
                 if sum(ir_values[:mid]) < sum(ir_values[-mid:]):
                     self.avoid_direction *= -1.0
-                print(f"IR: {self.avoid_direction} {time.time()}")
         elif not self.turn_pending():
             self.avoid_direction = None
             self.turn_requested = False
             self.turn_started = False
-            print("Done turning")
 
     def request_turn_until_clear(self):
         self.turn_requested = True
