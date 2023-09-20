@@ -28,8 +28,12 @@ def morph_contour_loop(video_port, kernel_side, min_space_width, flood, queue):
         cv2.drawContours(frame, contours, -1, (0, 255, 0), 3)
         cv2.drawContours(frame, close_contour, -1, (255, 0, 0), 3)
         cv2.drawContours(frame, best, -1, (0, 0, 255), 3)
-        if flood:
-            flood_fill(frame, close_contour)
+        if flood and len(close_contour) > 0:
+            height, width, _ = frame.shape
+            centroid = int(flood_fill(frame, close_contour))
+            print(centroid)
+            cv2.line(frame, (centroid, 0), (centroid, height), (0, 0, 255), 1)
+            
 
         # Display the resulting frame
         cv2.imshow('frame', frame)
@@ -91,8 +95,12 @@ def find_close_contour(contours, height):
 def flood_fill(frame, close_contour):
     color = (255, 0, 0, 10)
     height, width, _ = frame.shape
+    total = 0
     for p in close_contour:
         cv2.line(frame, (p[0][0], p[0][1]), (p[0][0], height), color, 1)
+        total += p[0][0] * p[0][1] / height
+    print(total)
+    return total / len(close_contour)
 
 
 def farthest_x_y(contour):
