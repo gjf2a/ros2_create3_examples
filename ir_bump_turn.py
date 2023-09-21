@@ -6,7 +6,8 @@ from irobot_create_msgs.msg import HazardDetectionVector, IrIntensityVector
 from rclpy.qos import qos_profile_sensor_data
 from geometry_msgs.msg import Twist
 
-from action_demo import RotateActionClient
+from runner import RotateActionClient
+import time
 
 
 class IrBumpTurnNode(runner.HdxNode):
@@ -18,13 +19,17 @@ class IrBumpTurnNode(runner.HdxNode):
         self.irs = self.create_subscription(IrIntensityVector, f"{namespace}/ir_intensity", self.ir_callback, qos_profile_sensor_data)
         self.bumps = self.create_subscription(HazardDetectionVector, f"{namespace}/hazard_detection", self.bump_callback, qos_profile_sensor_data)
         self.avoid_direction = None
+        self.turn_requested = False
         self.turn_started = False
 
     def ir_clear(self):
         return self.avoid_direction is None
 
     def is_turning(self):
-        return self.turn_started
+        return self.turn_requested
+
+    def turn_pending(self):
+        return self.avoid_direction is not None and not self.turn_started
 
     def bump_callback(self, msg):
         self.record_first_callback()
@@ -33,27 +38,27 @@ class IrBumpTurnNode(runner.HdxNode):
             self.avoid_direction = self.turn_velocity
             if 'left' in bump:
                 self.avoid_direction *= -1.0
-            print(f"Bump: {self.avoid_direction}")
 
     def ir_callback(self, msg):
         self.record_first_callback()
         ir_values = [reading.value for reading in msg.readings]
         max_ir = max(ir_values)
-        if max_ir > self.ir_too_close:
-            if self.turn_started:
+        if self.turn_pending() or max_ir > self.ir_too_close:
+            if self.turn_requested:
                 self.publisher.publish(runner.turn_twist(self.avoid_direction))
+                self.turn_started = True
             else:
                 mid = len(ir_values) // 2
                 self.avoid_direction = self.turn_velocity
                 if sum(ir_values[:mid]) < sum(ir_values[-mid:]):
                     self.avoid_direction *= -1.0
-                print(f"IR: {self.avoid_direction}")
-        else:
+        elif not self.turn_pending():
             self.avoid_direction = None
+            self.turn_requested = False
             self.turn_started = False
 
-    def start_turn_until_clear(self):
-        self.turn_started = True
+    def request_turn_until_clear(self):
+        self.turn_requested = True
 
     def add_self_recursive(self, executor):
         executor.add_node(self)
@@ -72,7 +77,7 @@ class IrBumpTurnBot(runner.WheelMonitorNode):
             if self.ir_node.ir_clear():
                 self.publisher.publish(runner.straight_twist(0.5))
             elif self.wheels_stopped():
-                self.ir_node.start_turn_until_clear()
+                self.ir_node.request_turn_until_clear()
 
     def add_self_recursive(self, executor):
         executor.add_node(self)

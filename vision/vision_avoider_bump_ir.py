@@ -7,7 +7,6 @@ import math
 
 from geometry_msgs.msg import Twist
 from rclpy.qos import qos_profile_sensor_data
-from action_demo import RotateActionClient
 
 from morph_contour_demo import Timer, find_contours, find_close_contour, find_contour_clusters, best_contour_cluster
 
