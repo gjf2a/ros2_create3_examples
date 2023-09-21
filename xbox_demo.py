@@ -1,3 +1,8 @@
+# Before using:
+# sudo chmod 666 /dev/input/event0
+
+# Also, sometimes you just have to reboot.
+
 from evdev import InputDevice, categorize, ecodes
 dev = InputDevice('/dev/input/event0')
 
