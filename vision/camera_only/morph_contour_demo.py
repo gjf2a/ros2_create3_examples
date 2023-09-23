@@ -19,7 +19,7 @@ class Timer:
     
 
 
-def morph_contour_loop(video_port, kernel_side, min_space_width, flood, queue):
+def morph_contour_loop(video_port, kernel_side, min_space_width, flood, multi, queue):
     kernel_size = (kernel_side, kernel_side)
     cap = cv2.VideoCapture(video_port)
     timer = Timer()
@@ -32,6 +32,8 @@ def morph_contour_loop(video_port, kernel_side, min_space_width, flood, queue):
             height, width, _ = frame.shape
             centroid = int(flood_fill(frame, close_contour))
             cv2.line(frame, (centroid, 0), (centroid, height), (0, 0, 255), 1)
+        elif multi is not None:
+            multi_flood_fill(frame, close_contour, multi[0], multi[1])
             
 
         # Display the resulting frame
@@ -107,6 +109,16 @@ def flood_fill(frame, close_contour):
             midpoint = p[0][0]
     return midpoint
 
+def multi_flood_fill(frame, close_contour, min_height_fraction, min_width_fraction):
+    color = (255, 0, 0, 10)
+    height, width, _ = frame.shape
+
+    sorted_contour = close_contour[np.argsort(close_contour[:, 0, 0], axis=0)]
+    high_enough = (1.0 - close_contour[:, 0, 1] / height) >= min_height_fraction
+    for i, p in enumerate(sorted_contour):
+        if high_enough[i]:
+            cv2.line(frame, (p[0][0], p[0][1]), (p[0][0], height), color, 1)
+
 
 def farthest_x_y(contour):
     min_y_index = np.argmin(contour[:, :, 1])
@@ -153,16 +165,18 @@ def contour_x_bounds(contour):
 if __name__ == '__main__':
     if "-h" in sys.argv or "-help" in sys.argv:
         print("Usage: morph_contour_demo.py [options]")
-        print("  -help:         This message")
-        print("  -vport=port:   Video port (default 0)")
-        print("  -kside=length: Kernel side length (default 11)")
-        print("  -best=width:   Width of best high point (default 10)")
-        print("  -flood:        Flood-fill up to close contour")
+        print("  -help          This message")
+        print("  -vport=port    Video port (default 0)")
+        print("  -kside=length  Kernel side length (default 11)")
+        print("  -best=width    Width of best high point (default 10)")
+        print("  -flood         Flood-fill up to close contour")
+        print("  -multi=wf,hf   Multi-flood with width fraction and height fraction") 
     else:
         vport = 0
         kside = 11
         best = 10
         flood = False
+        multi = None
         for arg in sys.argv:
             if arg.startswith("-v"):
                 vport = int(arg.split("=")[1])
@@ -172,6 +186,10 @@ if __name__ == '__main__':
                 best = int(arg.split("=")[1])
             elif arg.startswith("-f"):
                 flood = True
+            elif arg.startswith("-m"):
+                nums = arg.split('=')[1]
+                x, y = nums.split(',')
+                multi = (float(x), float(y))
         queue = Queue()
-        morph_contour_loop(vport, kside, best, flood, queue)
+        morph_contour_loop(vport, kside, best, flood, multi, queue)
 
