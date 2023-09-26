@@ -109,14 +109,16 @@ def flood_fill(frame, close_contour):
             midpoint = p[0][0]
     return midpoint
 
-def multi_flood_fill(frame, close_contour, min_height_fraction, min_width_fraction):
+def multi_flood_fill(frame, close_contour, min_width_fraction, min_height_fraction):
     color = (255, 0, 0, 10)
     height, width, _ = frame.shape
 
     sorted_contour = close_contour[np.argsort(close_contour[:, 0, 0], axis=0)]
-    high_enough = (1.0 - close_contour[:, 0, 1] / height) >= min_height_fraction
+    #high_enough = (1.0 - close_contour[:, 0, 1] / height) >= min_height_fraction
     for i, p in enumerate(sorted_contour):
-        if high_enough[i]:
+        fraction = 1.0 - (p[0][1] / height)
+        if fraction >= min_height_fraction:
+        #if high_enough[i]:
             cv2.line(frame, (p[0][0], p[0][1]), (p[0][0], height), color, 1)
 
 
