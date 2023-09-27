@@ -109,8 +109,9 @@ def multi_flood_fill(frame, close_contour, min_width_fraction, min_height_fracti
     centroids = []
 
     for partition in partition_contour(close_contour, height, min_height_fraction):
-        centroids.append(flood_fill(frame, partition))
-        cv2.line(frame, (centroids[-1], 0), (centroids[-1], height), (0, 0, 255), 1)
+        if len(partition) / width > min_width_fraction:
+            centroids.append(flood_fill(frame, partition))
+            cv2.line(frame, (centroids[-1], 0), (centroids[-1], height), (0, 0, 255), 1)
     return centroids
 
 
