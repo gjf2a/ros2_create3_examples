@@ -90,36 +90,52 @@ def find_close_contour(contours, height):
         close_contour = np.empty((len(best_xs), 1, 2), dtype=contours[0].dtype)
         for i, (x, y) in enumerate(best_xs.items()):
             close_contour[i] = np.array([[x, y]])
-        return close_contour
+        sorted_contour = close_contour[np.argsort(close_contour[:, 0, 0], axis=0)]
+        return sorted_contour
 
 
 def flood_fill(frame, close_contour):
     color = (255, 0, 0, 10)
     height, width, _ = frame.shape
 
-    sorted_contour = close_contour[np.argsort(close_contour[:, 0, 0], axis=0)]
-    area = np.sum(height - sorted_contour[:, 0, 1])
-
-    accumulation = 0
-    midpoint = None
-    for p in sorted_contour:
+    for p in close_contour:
         cv2.line(frame, (p[0][0], p[0][1]), (p[0][0], height), color, 1)
-        accumulation += height - p[0][1]
-        if midpoint is None and accumulation * 2 > area:
-            midpoint = p[0][0]
-    return midpoint
+    return find_x_centroid(close_contour, height)
+
 
 def multi_flood_fill(frame, close_contour, min_width_fraction, min_height_fraction):
     color = (255, 0, 0, 10)
     height, width, _ = frame.shape
 
-    sorted_contour = close_contour[np.argsort(close_contour[:, 0, 0], axis=0)]
     #high_enough = (1.0 - close_contour[:, 0, 1] / height) >= min_height_fraction
-    for i, p in enumerate(sorted_contour):
+    for i, p in enumerate(close_contour):
         fraction = 1.0 - (p[0][1] / height)
         if fraction >= min_height_fraction:
         #if high_enough[i]:
             cv2.line(frame, (p[0][0], p[0][1]), (p[0][0], height), color, 1)
+
+
+def partition_contour(sorted_contour, min_height_fraction):
+    contours = []
+    current = []
+    for i, p in enumerate(sorted_contour):
+        fraction = 1.0 - (p[0][1] / height)
+        if fraction >= min_height_fraction:
+            current.append(p)
+        elif len(current) > 0:
+            contours.append(current)
+            current = []
+    contours.append(current)
+    return contours
+
+
+def find_x_centroid(sorted_contour, height):
+    area = np.sum(height - sorted_contour[:, 0, 1])
+    accumulation = 0
+    for p in sorted_contour:
+        accumulation += height - p[0][1]
+        if accumulation * 2 > area:
+            return p[0][0]
 
 
 def farthest_x_y(contour):
