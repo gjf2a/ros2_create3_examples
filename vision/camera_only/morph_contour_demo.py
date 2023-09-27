@@ -106,10 +106,12 @@ def flood_fill(frame, close_contour):
 def multi_flood_fill(frame, close_contour, min_width_fraction, min_height_fraction):
     color = (255, 0, 0, 10)
     height, width, _ = frame.shape
+    centroids = []
 
     for partition in partition_contour(close_contour, height, min_height_fraction):
-        centroid = flood_fill(frame, partition)
-        cv2.line(frame, (centroid, 0), (centroid, height), (0, 0, 255), 1)
+        centroids.append(flood_fill(frame, partition))
+        cv2.line(frame, (centroids[-1], 0), (centroids[-1], height), (0, 0, 255), 1)
+    return centroids
 
 
 def partition_contour(sorted_contour, height, min_height_fraction):
