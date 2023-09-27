@@ -107,15 +107,12 @@ def multi_flood_fill(frame, close_contour, min_width_fraction, min_height_fracti
     color = (255, 0, 0, 10)
     height, width, _ = frame.shape
 
-    #high_enough = (1.0 - close_contour[:, 0, 1] / height) >= min_height_fraction
-    for i, p in enumerate(close_contour):
-        fraction = 1.0 - (p[0][1] / height)
-        if fraction >= min_height_fraction:
-        #if high_enough[i]:
-            cv2.line(frame, (p[0][0], p[0][1]), (p[0][0], height), color, 1)
+    for partition in partition_contour(close_contour, height, min_height_fraction):
+        centroid = flood_fill(frame, partition)
+        cv2.line(frame, (centroid, 0), (centroid, height), (0, 0, 255), 1)
 
 
-def partition_contour(sorted_contour, min_height_fraction):
+def partition_contour(sorted_contour, height, min_height_fraction):
     contours = []
     current = []
     for i, p in enumerate(sorted_contour):
@@ -130,7 +127,7 @@ def partition_contour(sorted_contour, min_height_fraction):
 
 
 def find_x_centroid(sorted_contour, height):
-    area = np.sum(height - sorted_contour[:, 0, 1])
+    area = sum(height - p[0][1] for p in sorted_contour)
     accumulation = 0
     for p in sorted_contour:
         accumulation += height - p[0][1]
