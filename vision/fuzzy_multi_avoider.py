@@ -9,7 +9,6 @@ from geometry_msgs.msg import Twist
 from irobot_create_msgs.msg import InterfaceButtons
 from irobot_create_msgs.msg import IrIntensityVector, HazardDetectionVector, WheelStatus
 from rclpy.qos import qos_profile_sensor_data
-from runner import RotateActionClient
 
 from morph_contour_demo import Timer, find_contours, find_close_contour, multi_flood_fill
 
@@ -17,23 +16,36 @@ from queue import Queue
 import threading
 
 from fuzzy import *
+from ir_bump_turn import IrBumpTurnNode
 
 
-class VisionBot(runner.HdxNode):
-    def __init__(self, img_queue, namespace: str = "", use_ir=False):
-        super().__init__('wheel_publisher')
+class VisionBot(runner.WheelMonitorNode):
+    def __init__(self, img_queue, namespace: str = "", ir_limit=50):
+        super().__init__('wheel_publisher', namespace)
         self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
+        self.ir_node = IrBumpTurnNode(namespace, ir_limit)
         timer_period = 0.10 # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
         self.img_queue = img_queue
         self.last_target = None
 
+    def add_self_recursive(self, executor):
+        executor.add_node(self)
+        self.ir_node.add_self_recursive(executor)
+
     def timer_callback(self):
         self.record_first_callback()
+        if not self.ir_node.is_turning():
+            if self.ir_node.ir_clear():
+                self.publish_fuzzy_move()
+            elif self.wheels_stopped():
+                self.ir_node.request_turn_until_clear()
+
+    def publish_fuzzy_move(self):
         if not self.img_queue.empty():
             best = self.img_queue.get()
             if len(best) == 0:
-                msg = turn_twist(math.pi / 2)
+                msg = runner.turn_twist(math.pi / 2)
                 self.publisher.publish(msg)
                 self.last_target = None
                 print("Turning")
@@ -90,4 +102,4 @@ if __name__ == '__main__':
     msg_queue = Queue()
     print(f"Starting up {sys.argv[1]}...")
     bot = VisionBot(msg_queue, f'/{sys.argv[1]}')
-    runner.run_vision_multiple_nodes(FloorContour(msg_queue), bot)
+    runner.run_recursive_vision_node(FloorContour(msg_queue), bot)
