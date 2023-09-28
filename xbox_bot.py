@@ -10,6 +10,22 @@ from queue import Queue
 import threading
 from rclpy.qos import qos_profile_sensor_data
 
+# from https://automaticaddison.com/how-to-convert-a-quaternion-into-euler-angles-in-python/
+def yaw_from_quaternion(x, y, z, w):
+        """
+        Convert a quaternion into euler angles (roll, pitch, yaw)
+        roll is rotation around x in radians (counterclockwise)
+        pitch is rotation around y in radians (counterclockwise)
+        yaw is rotation around z in radians (counterclockwise)
+        """
+     
+        t3 = +2.0 * (w * z + x * y)
+        t4 = +1.0 - 2.0 * (y * y + z * z)
+        yaw_z = math.atan2(t3, t4)
+     
+        return yaw_z # in radians
+
+
 class XBoxReader:
     def __init__(self, msg_queue, incoming):
         self.msg_queue = msg_queue
@@ -47,7 +63,8 @@ class XBoxNode(runner.HdxNode):
                 self.publisher.publish(runner.turn_twist(math.pi / 4))
 
     def odom_callback(self, msg):
-        print(msg.pose.pose.position)
+        ort = msg.pose.pose.orientation
+        print(msg.pose.pose.position, yaw_from_quaternion(ort.x, ort.y, ort.z, ort.w))
 
     def add_self_recursive(self, executor):
         executor.add_node(self)
