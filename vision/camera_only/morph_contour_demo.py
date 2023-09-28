@@ -19,7 +19,7 @@ class Timer:
     
 
 
-def morph_contour_loop(video_port, kernel_side, min_space_width, flood, queue):
+def morph_contour_loop(video_port, kernel_side, min_space_width, flood, multi, queue):
     kernel_size = (kernel_side, kernel_side)
     cap = cv2.VideoCapture(video_port)
     timer = Timer()
@@ -31,8 +31,9 @@ def morph_contour_loop(video_port, kernel_side, min_space_width, flood, queue):
         if flood and len(close_contour) > 0:
             height, width, _ = frame.shape
             centroid = int(flood_fill(frame, close_contour))
-            print(centroid)
             cv2.line(frame, (centroid, 0), (centroid, height), (0, 0, 255), 1)
+        elif multi is not None:
+            multi_flood_fill(frame, close_contour, multi[0], multi[1])
             
 
         # Display the resulting frame
@@ -89,18 +90,52 @@ def find_close_contour(contours, height):
         close_contour = np.empty((len(best_xs), 1, 2), dtype=contours[0].dtype)
         for i, (x, y) in enumerate(best_xs.items()):
             close_contour[i] = np.array([[x, y]])
-        return close_contour
+        sorted_contour = close_contour[np.argsort(close_contour[:, 0, 0], axis=0)]
+        return sorted_contour
 
 
 def flood_fill(frame, close_contour):
     color = (255, 0, 0, 10)
     height, width, _ = frame.shape
-    total = 0
+
     for p in close_contour:
         cv2.line(frame, (p[0][0], p[0][1]), (p[0][0], height), color, 1)
-        total += p[0][0] * p[0][1] / height
-    print(total)
-    return total / len(close_contour)
+    return find_x_centroid(close_contour, height)
+
+
+def multi_flood_fill(frame, close_contour, min_width_fraction, min_height_fraction):
+    color = (255, 0, 0, 10)
+    height, width, _ = frame.shape
+    centroids = []
+
+    for partition in partition_contour(close_contour, height, min_height_fraction):
+        if len(partition) / width > min_width_fraction:
+            centroids.append(flood_fill(frame, partition))
+            cv2.line(frame, (centroids[-1], 0), (centroids[-1], height), (0, 0, 255), 1)
+    return centroids
+
+
+def partition_contour(sorted_contour, height, min_height_fraction):
+    contours = []
+    current = []
+    for i, p in enumerate(sorted_contour):
+        fraction = 1.0 - (p[0][1] / height)
+        if fraction >= min_height_fraction:
+            current.append(p)
+        elif len(current) > 0:
+            contours.append(current)
+            current = []
+    contours.append(current)
+    return contours
+
+
+def find_x_centroid(sorted_contour, height):
+    area = sum(height - p[0][1] for p in sorted_contour)
+    accumulation = 0
+    for p in sorted_contour:
+        accumulation += height - p[0][1]
+        if accumulation * 2 > area:
+            return p[0][0]
 
 
 def farthest_x_y(contour):
@@ -148,16 +183,18 @@ def contour_x_bounds(contour):
 if __name__ == '__main__':
     if "-h" in sys.argv or "-help" in sys.argv:
         print("Usage: morph_contour_demo.py [options]")
-        print("  -help:         This message")
-        print("  -vport=port:   Video port (default 0)")
-        print("  -kside=length: Kernel side length (default 11)")
-        print("  -best=width:   Width of best high point (default 10)")
-        print("  -flood:        Flood-fill up to close contour")
+        print("  -help          This message")
+        print("  -vport=port    Video port (default 0)")
+        print("  -kside=length  Kernel side length (default 11)")
+        print("  -best=width    Width of best high point (default 10)")
+        print("  -flood         Flood-fill up to close contour")
+        print("  -multi=wf,hf   Multi-flood with width fraction and height fraction") 
     else:
         vport = 0
         kside = 11
         best = 10
         flood = False
+        multi = None
         for arg in sys.argv:
             if arg.startswith("-v"):
                 vport = int(arg.split("=")[1])
@@ -167,6 +204,10 @@ if __name__ == '__main__':
                 best = int(arg.split("=")[1])
             elif arg.startswith("-f"):
                 flood = True
+            elif arg.startswith("-m"):
+                nums = arg.split('=')[1]
+                x, y = nums.split(',')
+                multi = (float(x), float(y))
         queue = Queue()
-        morph_contour_loop(vport, kside, best, flood, queue)
+        morph_contour_loop(vport, kside, best, flood, multi, queue)
 
