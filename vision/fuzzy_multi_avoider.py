@@ -40,19 +40,23 @@ class VisionBot(runner.WheelMonitorNode):
                 self.publish_fuzzy_move()
             elif self.wheels_stopped():
                 self.ir_node.request_turn_until_clear()
+            else:
+                print("waiting on ir_node")
+        else:
+            print("ir_node taking over")
 
     def publish_fuzzy_move(self):
         if not self.img_queue.empty():
             best = self.img_queue.get()
-            if len(best) == 0:
+            if type(best) == runner.CvKey:
+                print("Typed", best)
+            elif best == "QUIT":
+                self.quit()
+            elif len(best) == 0:
                 msg = runner.turn_twist(math.pi / 2)
                 self.publisher.publish(msg)
                 self.last_target = None
-                print("Turning")
-            elif best == "QUIT":
-                self.quit()
-            elif type(best) == runner.CvKey:
-                print("Typed", best)
+                print("Vision turning")
             else:
                 if self.last_target is None or len(best) == 1:
                     self.last_target = best[0]
