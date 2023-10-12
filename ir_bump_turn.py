@@ -15,7 +15,7 @@ class IrBumpTurnNode(runner.HdxNode):
         super().__init__('ir_turn_node')
         self.ir_too_close = ir_too_close
         self.turn_velocity = turn_velocity
-        self.publisher = self.create_publisher(Twist, f'{namespace}/cmd_vel', 10)
+        self.publisher = self.create_publisher(Twist, f'{namespace}/cmd_vel', 1)
         self.irs = self.create_subscription(IrIntensityVector, f"{namespace}/ir_intensity", self.ir_callback, qos_profile_sensor_data)
         self.bumps = self.create_subscription(HazardDetectionVector, f"{namespace}/hazard_detection", self.bump_callback, qos_profile_sensor_data)
         self.avoid_direction = None

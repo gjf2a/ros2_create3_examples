@@ -22,7 +22,7 @@ from ir_bump_turn import IrBumpTurnNode
 class VisionBot(runner.WheelMonitorNode):
     def __init__(self, img_queue, namespace: str = "", ir_limit=50):
         super().__init__('wheel_publisher', namespace)
-        self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
+        self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 1)
         self.ir_node = IrBumpTurnNode(namespace, ir_limit)
         timer_period = 0.10 # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
