@@ -98,8 +98,11 @@ def flood_fill(frame, close_contour):
     color = (255, 0, 0, 10)
     height, width, _ = frame.shape
 
+    line_mask = np.zeros_like(frame)
+
     for p in close_contour:
-        cv2.line(frame, (p[0][0], p[0][1]), (p[0][0], height), color, 1)
+        cv2.line(line_mask, (p[0][0], p[0][1]), (p[0][0], height), (255, 255, 255), 1)
+    frame = cv2.bitwise_xor(cv2.bitwise_not(line_mask), frame)
     return find_x_centroid(close_contour, height)
 
 
