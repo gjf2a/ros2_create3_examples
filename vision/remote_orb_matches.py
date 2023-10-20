@@ -37,7 +37,7 @@ class OrbDemo(runner.OpenCvCode):
                 y1 = int(matches[i - 1][0][1])
                 x2 = int(matches[i][0][0])
                 y2 = int(matches[i][0][1])
-                cv2.line(frame, (x1, y1), (x2, y2), (255, 0, 0), 1)
+                #cv2.line(frame, (x1, y1), (x2, y2), (255, 0, 0), 1)
             
         self.prev_kp = kp
         self.prev_des = des

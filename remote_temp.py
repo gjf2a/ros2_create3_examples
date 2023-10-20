@@ -24,13 +24,19 @@ class TemperatureBot(remote_vision.RemoteBot):
         self.temperature = W1ThermSensor()
         self.temp_file = temp_file
 
+        self.temp_timer = self.create_timer(2.0, self.temp_read)
+        self.last_position = None
+
+    def temp_read(self):
+        if self.last_position is not None:
+            with open(self.temp_file, 'a') as fout:
+                try:
+                    fout.write(f"{self.temperature.get_temperature(Unit.DEGREES_F)} {self.last_position} {time.time()}\n")
+                except:
+                    print(f"update failed at {time.time()} {self.last_position}")
+
     def odom_callback(self, msg):
-        self.record_first_callback()
-        with open(self.temp_file, 'a') as fout:
-            try:
-                fout.write(f"{self.temperature.get_temperature(Unit.DEGREES_F)} {msg.pose.pose.position} {time.time()}\n")
-            except:
-                print(f"update failed at {time.time()} {msg.pose.pose.position}")
+        self.last_position = msg.pose.pose.position
 
 
 if __name__ == '__main__':
