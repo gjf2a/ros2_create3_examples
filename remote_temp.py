@@ -1,3 +1,7 @@
+# To reset the odometry:
+#
+# ros2 service call /{robot_name}/reset_pose irobot_create_msgs/srv/ResetPose "{pose:{position:{x: 0.0, y: 0.0, z: 0.0}, orientation:{x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}"
+
 import runner
 import sys
 import time
