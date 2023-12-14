@@ -3,6 +3,7 @@ import math
 import runner
 import rclpy
 import time
+import random
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from irobot_create_msgs.msg import IrIntensityVector
@@ -28,10 +29,9 @@ class IRSubscriber(Node):
         self.printIR(msg)
 
 class BumpTurnNode(runner.HdxNode):
-    def __init__(self, namespace: str = "", avoid_angle=3 * math.pi / 4):
+    def __init__(self, namespace: str = ""):
         super().__init__('bump_turn_node')
         self.bumps = self.create_subscription(HazardDetectionVector, f"{namespace}/hazard_detection", self.bump_callback, qos_profile_sensor_data)
-        self.avoid_angle = avoid_angle
         self.rotator = RotateActionClient(self.turn_finished_callback, namespace)
         self.turning = False
         self.bump = None
@@ -55,7 +55,7 @@ class BumpTurnNode(runner.HdxNode):
                 print(f"Detected {self.bump}")
 
     def start_turn(self):
-        goal = self.avoid_angle
+        goal = random.uniform(1.57, 6.28)
         if 'left' in self.bump:
             goal *= -1
         self.rotator.send_goal(goal)
