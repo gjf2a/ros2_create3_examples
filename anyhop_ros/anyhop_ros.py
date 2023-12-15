@@ -1,5 +1,5 @@
 from pyhop_anytime import *
-import copy, sys
+import copy, sys, threading
 import rclpy
 from rclpy.action import ActionClient
 from rclpy.node import Node
@@ -101,6 +101,7 @@ class PlanManager:
         self.plan = planner.anyhop_best(state, [('find_route', 'robot', state.location['robot'], goal)], max_seconds=max_seconds)
         self.state = state 
         self.action_client = NavClient("Navigator", self.step_done, namespace)
+        self.action_client.spin_thread()
         self.plan_step = 0
 
     def current_goal_name(self):
@@ -134,10 +135,12 @@ class NavClient(Node):
     def send_goal(self, goal):
         self.running = True
         goal_msg = NavigateToPosition.Goal()
-        goal_msg.achieve_goal_heading = False
+        goal_msg.achieve_goal_heading = True
         goal_msg.goal_pose = self.make_pose_from(goal)
         
+        print(f"Preparing to send goal message {goal_msg}")
         self.action_client.wait_for_server()
+        print("Server responded - sending goal")
         future = self.action_client.send_goal_async(goal_msg)
         future.add_done_callback(self.goal_response_callback)
 
@@ -164,7 +167,10 @@ class NavClient(Node):
         ps.pose = p
         return ps
 
-         
+    def spin_thread(self):
+        st = threading.Thread(target=lambda ac: rclpy.spin(ac), args=(self,))
+        st.start()
+
 
 if __name__ == '__main__':
     if len(sys.argv) != 3:
