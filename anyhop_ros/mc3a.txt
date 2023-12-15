@@ -1,0 +1,6 @@
+316:      (0.0,    0.0):   Ferrer
+Ferrer:   (7.715,  0.0):   316, Center
+Center:   (7.715, 10.6):   Ferrer, Lounge, Goadrich
+Lounge:   (3.125, 10.6):   Center
+Goadrich: (7.715, 21.445): Center, 317
+317:      (1.515, 21.445): Goadrich
