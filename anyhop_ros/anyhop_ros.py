@@ -180,12 +180,16 @@ if __name__ == '__main__':
         map_info = MapInfo(filename=filename)
         if goal in map_info:
             rclpy.init()
-            manager = PlanManager(goal, map_info)
-            print(manager.plan)
-            manager.execute_next_step()
-            while not manager.plan_complete():
-                pass
-            rclpy.shutdown()
+            try:
+                manager = PlanManager(goal, map_info)
+                print(manager.plan)
+                manager.execute_next_step()
+                while not manager.plan_complete():
+                    pass
+            except:
+                print("Exception")
+            finally:
+                rclpy.shutdown()
         else:
             print(f"Can't find {goal} in...")
             print(map_info)
