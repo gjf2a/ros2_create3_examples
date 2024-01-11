@@ -90,4 +90,7 @@ def main(stdscr):
     
 
 if __name__ == '__main__':
-    wrapper(main)
+    if len(sys.argv) < 2:
+        print("Usage: remote_bot robot_name")
+    else:
+        wrapper(main)
