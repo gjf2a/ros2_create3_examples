@@ -53,12 +53,14 @@ class RemoteNode(HdxNode):
             self.last_key = msg
             if self.last_key in COMMANDS:
                 self.publisher.publish(COMMANDS[msg])
-            self.stdscr.addstr(4, 0, f"{msg} ({self.last_key})")
+            self.stdscr.addstr(5, 0, f"{msg} ({self.last_key})")
         self.stdscr.refresh()
 
     def printOdometry(self, msg: Odometry):
         p = msg.pose.pose.position
-        self.stdscr.addstr(3, 0, f"Position: ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})")
+        h = msg.pose.pose.orientation
+        self.stdscr.addstr(3, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})")
+        self.stdscr.addstr(4, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})")
         self.stdscr.refresh()
 
 

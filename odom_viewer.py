@@ -34,7 +34,10 @@ class OdometrySubscriber(HdxNode):
 
     def printOdometry(self, msg: Odometry):
         p = msg.pose.pose.position
-        self.stdscr.addstr(2, 0, f"Position: ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f}) ({self.elapsed_time():7.2f} s)")
+        h = msg.pose.pose.orientation
+        self.stdscr.addstr(1, 0, f"Time:        {self.elapsed_time():7.2f} s")
+        self.stdscr.addstr(2, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})")
+        self.stdscr.addstr(3, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})")
         self.stdscr.refresh()
 
 
@@ -47,7 +50,7 @@ def main(stdscr):
     st = threading.Thread(target=spin_thread, args=(finished, ros_ready, lambda: OdometrySubscriber(stdscr, "/archangel")))
     st.start()
 
-    stdscr.addstr(1, 0, 'Enter "q" to quit')
+    stdscr.addstr(0, 0, 'Enter "q" to quit')
     stdscr.refresh()
     
     while True:
@@ -55,7 +58,7 @@ def main(stdscr):
         if k == 'q':
             break
         elif ros_ready.is_set():
-            stdscr.addstr(0, 0, "ROS2 ready")
+            stdscr.addstr(4, 0, "ROS2 ready")
             stdscr.refresh()
     finished.set()
     st.join()

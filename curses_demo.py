@@ -1,7 +1,7 @@
-from curses import wrapper
-from sub_odom import OdometrySubscriber
+from curses import wrapper, curs_set
 
 def main(stdscr):
+    curs_set(0)
     stdscr.clear()
 
     keystrokes = 0
@@ -15,7 +15,11 @@ def main(stdscr):
             break
         else:
             keystrokes += 1
-            stdscr.addstr(1, 0, f"keystrokes: {keystrokes}") 
+            stdscr.addstr(1, 0, f"keystrokes: {keystrokes} ({k}) {' ' * 20}") 
+            if k.startswith("KEY"):
+                stdscr.addstr(2, 0, "Non-printable keystroke")
+            else: 
+                stdscr.addstr(2, 0, ' ' * 30)
             stdscr.refresh()
     
 
