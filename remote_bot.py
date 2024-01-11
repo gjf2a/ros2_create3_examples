@@ -31,8 +31,7 @@ COMMANDS = {
 }
 
 
-# Adapted from https://github.com/paccionesawyer/Create3_ROS2_Intro/blob/main/individual_examples/sub_battery.py
-class OdometrySubscriber(HdxNode):
+class RemoteNode(HdxNode):
     def __init__(self, stdscr, msg_queue, namespace: str = ""):
         super().__init__('odometry_subscriber')
         self.subscription = self.create_subscription(
@@ -69,9 +68,9 @@ def main(stdscr):
 
     finished = threading.Event()
     ros_ready = threading.Event()
-    msg_queue = Queue()
+    msg_queue = Queue(maxsize=1)
     
-    st = threading.Thread(target=spin_thread, args=(finished, ros_ready, lambda: OdometrySubscriber(stdscr, msg_queue, "/archangel")))
+    st = threading.Thread(target=spin_thread, args=(finished, ros_ready, lambda: RemoteNode(stdscr, msg_queue, f"/{sys.argv[1]}")))
     st.start()
 
     stdscr.addstr(1, 0, 'Enter "q" to quit')
@@ -84,7 +83,7 @@ def main(stdscr):
         elif ros_ready.is_set():
             stdscr.addstr(0, 0, "ROS2 ready")
             stdscr.refresh()
-        else:
+        elif not msg_queue.full():
             msg_queue.put(k)
     finished.set()
     st.join()
