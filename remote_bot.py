@@ -10,15 +10,13 @@ from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
 from runner import HdxNode, straight_twist, turn_twist
 
-def spin_thread(finished, ros_ready, node_maker):
+def spin_thread(finished, node_maker):
     rclpy.init(args=None)
     executor = rclpy.get_global_executor()
     node = node_maker()
     executor.add_node(node)
     while executor.context.ok() and not finished.is_set() and not node.quitting():
         executor.spin_once()
-        if node.ros_issuing_callbacks():
-            ros_ready.set()
     node.reset()
     rclpy.shutdown()
 
@@ -69,10 +67,9 @@ def main(stdscr):
     stdscr.clear()
 
     finished = threading.Event()
-    ros_ready = threading.Event()
     msg_queue = Queue(maxsize=1)
     
-    st = threading.Thread(target=spin_thread, args=(finished, ros_ready, lambda: RemoteNode(stdscr, msg_queue, f"/{sys.argv[1]}")))
+    st = threading.Thread(target=spin_thread, args=(finished, lambda: RemoteNode(stdscr, msg_queue, f"/{sys.argv[1]}")))
     st.start()
 
     stdscr.addstr(1, 0, 'Enter "q" to quit')
@@ -82,9 +79,6 @@ def main(stdscr):
         k = stdscr.getkey()
         if k == 'q':
             break
-        elif ros_ready.is_set():
-            stdscr.addstr(0, 0, "ROS2 ready")
-            stdscr.refresh()
         elif not msg_queue.full():
             msg_queue.put(k)
     finished.set()
