@@ -1,5 +1,9 @@
-from curses import wrapper, curs_set, A_REVERSE
+from curses_menu_demo import MenuItems
+
 from pyhop_anytime import *
+
+from curses import wrapper, curs_set, A_REVERSE, error
+from queue import Queue
 import copy, sys, threading
 import rclpy
 from rclpy.action import ActionClient
@@ -7,6 +11,26 @@ from rclpy.node import Node
 from irobot_create_msgs.action import NavigateToPosition
 from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
 from std_msgs.msg import Header
+
+def plan_manager_thread(map_info, incoming_queue, stdscr):
+    rclpy.init(args=None)
+    executor = rclpy.get_global_executor()
+    manager = PlanManager(map_info, stdscr)
+    executor.add_node(manager.action_client)
+    while executor.context.ok():
+        if not incoming_queue.empty():
+            msg = incoming_queue.get()
+            stdscr.add_str(0, 0, f"Received '{msg}' message")
+            stdscr.refresh()
+            if msg == 'quit':
+                break
+            elif msg in map_info and manager.available():
+                manager.make_plan(msg)
+                manager.execute_next_step()
+        executor.spin_once()
+
+    rclpy.shutdown()
+
 
 class MapInfo:
     def __init__(self, filename=None):
@@ -97,16 +121,20 @@ def find_route(state, robot, start, end):
 
 
 class PlanManager:
-    def __init__(self, goal, map_info, namespace='archangel', state=None, max_seconds=None):
+    def __init__(self, map_info, stdscr, namespace='archangel', state=None):
         self.map_info = map_info
         planner = make_planner()
         if state is None:
             state = map_info.pyhop_state()
-        self.plan = planner.anyhop_best(state, [('find_route', 'robot', state.location['robot'], goal)], max_seconds=max_seconds)
         self.state = state 
+        self.plan = None
         self.action_client = NavClient("Navigator", self.step_done, namespace)
-        self.action_client.spin_thread()
         self.plan_step = 0
+        self.stdscr = stdscr
+
+    def make_plan(self, goal, max_seconds=None):
+        self.plan_step = 0
+        self.plan = planner.anyhop_best(state, [('find_route', 'robot', state.location['robot'], goal)], max_seconds=max_seconds)
 
     def current_goal_name(self):
         return self.plan[self.plan_step][3]
@@ -115,11 +143,13 @@ class PlanManager:
         return self.map_info.locations[self.current_goal_name()]
 
     def execute_next_step(self):
-        print(f"Starting {self.plan[self.plan_step]}")
+        self.stdscr.addstr(0, 0, f"Starting {self.plan[self.plan_step]}")
+        self.stdscr.refresh()
         self.action_client.send_goal(self.current_goal_coordinates())
         
     def step_done(self, future):
-        print(f"Completed {self.plan[self.plan_step]}")
+        self.stdscr.addstr(0, 0, f"Completed {self.plan[self.plan_step]}")
+        self.stdscr.refresh()
         # Ask anyhop to update self.state using the current operator
         self.plan_step += 1
         if not self.plan_complete():
@@ -127,6 +157,9 @@ class PlanManager:
 
     def plan_complete(self):
         return self.plan_step == len(self.plan)
+
+    def available(self):
+        return self.plan is None or self.plan_complete()
         
 
 class NavClient(Node):
@@ -171,33 +204,45 @@ class NavClient(Node):
         ps.pose = p
         return ps
 
-    def spin_thread(self):
-        st = threading.Thread(target=lambda ac: rclpy.spin(ac), args=(self,))
-        st.start()
-
-
-def display_menu(stdscr, current, items, start_row):
-    for i, item in enumerate(items):
-        item = f"{item}{' ' * 20}"
-        if current == i:
-            stdscr.addstr(i + start_row, 0, item, A_REVERSE)
-        else:
-            stdscr.addstr(i + start_row, 0, item)
-
 
 def main(stdscr):
     namespace, filename = sys.argv[1:]
     map_info = MapInfo(filename=filename)
     locations = map_info.all_locations()
+    to_manager = Queue(maxsize=1)
+
+    st = threading.Thread(target=plan_manager_thread, args=(map_info, to_manager, stdscr))
+    st.start()
     
     curs_set(0)
-    # Use the new MenuItems class.
-    current = 0
+    stdscr.nodelay(True)
+    menu = MenuItems(4, locations + ["quit"])
+    stdscr.clear()
+    update = True
     
     while True:
-        stdscr.clear()    
-        display_menu(stdscr, current, items, 0)
-        stdscr.refresh()
+        if update:
+            menu.show(stdscr)
+            stdscr.refresh()
+            update = False
+
+        try:
+            key = stdscr.getkey()
+            update = True
+            selection = menu.update_from_key(key)            
+            if selection is not None:
+                stdscr.addstr(1, 0, f"sending '{selection}'")
+                stdscr.refresh()
+                if not to_manager.full():
+                    to_manager.put(selection)
+                    if selection == "quit":
+                        stdscr.addstr(2, 0, "quitting...")
+                        stdscr.refresh()
+                        break
+        except error:
+            pass
+
+    st.join()
     
 
 
@@ -206,22 +251,3 @@ if __name__ == '__main__':
         print("Usage: anyhop_ros namespace map_filename")
     else:
         wrapper(main)
-
-        # Everything below here is for reference only
-        namespace, filename = sys.argv[1:]
-        map_info = MapInfo(filename=filename)
-        if goal in map_info:
-            rclpy.init()
-            try:
-                manager = PlanManager(goal, map_info)
-                print(manager.plan)
-                manager.execute_next_step()
-                while not manager.plan_complete():
-                    pass
-            except:
-                print("Exception")
-            finally:
-                rclpy.shutdown()
-        else:
-            print(f"Can't find {goal} in...")
-            print(map_info)

@@ -1,4 +1,4 @@
-from curses import wrapper, curs_set, A_REVERSE
+from curses import wrapper, curs_set, A_REVERSE, error
 
 
 class MenuItems:
@@ -12,9 +12,9 @@ class MenuItems:
         for i, item in enumerate(self.items):
             item = f"{item}{' ' * (self.longest - len(item))}"
             if self.current == i:
-                stdscr.addstr(i, 0, item, A_REVERSE)
+                stdscr.addstr(self.start_row + i, 0, item, A_REVERSE)
             else:
-                stdscr.addstr(i, 0, item)
+                stdscr.addstr(self.start_row + i, 0, item)
 
     def update_from_key(self, key):
         if key == '\n':
@@ -28,19 +28,27 @@ class MenuItems:
 
 def main(stdscr):
     curs_set(0)
+    stdscr.nodelay(True)
     stdscr.clear()
 
-    menu = MenuItems(0, ['bell', 'book', 'candle', 'exit'])
+    menu = MenuItems(3, ['bell', 'book', 'candle', 'exit'])
+    update = True
 
+    stdscr.clear()
     while True:
-        stdscr.clear()
-        menu.show(stdscr)
-        stdscr.refresh()
+        if update:
+            menu.show(stdscr)
+            stdscr.refresh()
+            update = False
 
-        key = stdscr.getkey()
-        selection = menu.update_from_key(key)
-        if selection == 'exit':
-            break
+        try:
+            key = stdscr.getkey()
+            update = True
+            selection = menu.update_from_key(key)
+            if selection == 'exit':
+                break
+        except error:
+            stdscr.addstr(0, 0, "caught no-key")
     
 
 if __name__ == '__main__':
