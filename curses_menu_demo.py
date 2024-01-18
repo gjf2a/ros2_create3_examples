@@ -16,6 +16,9 @@ class MenuItems:
             else:
                 stdscr.addstr(self.start_row + i, 0, item)
 
+    def get_current_selection(self):
+        return self.items[self.current]
+
     def update_from_key(self, key):
         if key == '\n':
             return self.items[self.current]
@@ -47,6 +50,8 @@ def main(stdscr):
             selection = menu.update_from_key(key)
             if selection == 'exit':
                 break
+            else:
+                stdscr.addstr(1, 0, f"Selected {selection}{' ' * 20}")
         except error:
             stdscr.addstr(0, 0, "caught no-key")
     
