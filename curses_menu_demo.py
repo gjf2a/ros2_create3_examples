@@ -19,6 +19,9 @@ class MenuItems:
     def get_current_selection(self):
         return self.items[self.current]
 
+    def add_item(self, item):
+        self.items.append(item)
+
     def update_from_key(self, key):
         if key == '\n':
             return self.items[self.current]
