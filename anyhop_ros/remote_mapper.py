@@ -1,6 +1,5 @@
-import threading, subprocess, sys, math
+import threading, subprocess, sys, math, curses
 
-from curses import wrapper, curs_set
 from queue import Queue
 
 import rclpy
@@ -75,11 +74,20 @@ def reset_pos(bot):
     return subprocess.run(call, shell=True, capture_output=True)
 
 
+# From: https://stackoverflow.com/questions/21784625/how-to-input-a-word-in-ncurses-screen
+def my_raw_input(stdscr, row, col, prompt_string):
+    curses.echo()
+    stdscr.addstr(row, col, prompt_string)
+    stdscr.refresh()
+    text = stdscr.getstr(row + 1, col, 20)
+    return text
+
+
 def main(stdscr):
     global graph, last_position, last_orientation
 
     bot = sys.argv[1]
-    curs_set(0)
+    curses.curs_set(0)
     stdscr.clear()
 
     finished = threading.Event()
@@ -96,7 +104,9 @@ def main(stdscr):
         if k == 'q':
             break
         elif k == 'x':
-            graph[len(graph)] = (last_position, last_orientation)
+            name = my_raw_input(stdscr, 8, 0, "Enter name             ").lower().strip()
+            stdscr.addstr(8, 0, f"Using {name}")
+            graph[name] = (last_position, last_orientation)
         elif k == 'r':
             stdscr.addstr(1, 0, f"Waiting for reset...{' ' * 30}")
             result = reset_pos(bot)
@@ -115,5 +125,5 @@ if __name__ == '__main__':
     if len(sys.argv) < 2:
         print("Usage: remote_bot robot_name")
     else:
-        wrapper(main)
+        curses.wrapper(main)
         print(graph)

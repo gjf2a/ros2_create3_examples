@@ -19,11 +19,11 @@ def main(stdscr):
     stdscr.refresh()
     stdscr.getch()
 
-def my_raw_input(stdscr, r, c, prompt_string):
+def my_raw_input(stdscr, row, col, prompt_string):
     curses.echo() 
-    stdscr.addstr(r, c, prompt_string)
+    stdscr.addstr(row, col, prompt_string)
     stdscr.refresh()
-    text = stdscr.getstr(r + 1, c, 20)
+    text = stdscr.getstr(row + 1, col, 20)
     return text       
     
 
