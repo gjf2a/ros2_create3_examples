@@ -1,4 +1,6 @@
-import threading, subprocess, sys, math, curses
+import threading, subprocess, sys, math, curses, pickle, datetime
+
+from pyhop_anytime import *
 
 from queue import Queue
 
@@ -27,7 +29,7 @@ COMMANDS = {
     'd': turn_twist(-math.pi/4)
 }
 
-graph = {}
+graph = Graph()
 last_position = None
 last_orientation = None
 
@@ -105,8 +107,9 @@ def main(stdscr):
             break
         elif k == 'x':
             name = my_raw_input(stdscr, 8, 0, "Enter name             ").lower().strip()
+            name = name.decode('utf-8')
             stdscr.addstr(8, 0, f"Using {name}")
-            graph[name] = (last_position, last_orientation)
+            graph.add_node(name, (last_position, last_orientation))
         elif k == 'r':
             stdscr.addstr(1, 0, f"Waiting for reset...{' ' * 30}")
             result = reset_pos(bot)
@@ -126,4 +129,5 @@ if __name__ == '__main__':
         print("Usage: remote_bot robot_name")
     else:
         curses.wrapper(main)
-        print(graph)
+        with open(f"map_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}", 'wb') as file:
+            pickle.dump(graph, file)
