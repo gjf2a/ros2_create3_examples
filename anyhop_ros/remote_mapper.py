@@ -29,9 +29,12 @@ COMMANDS = {
     'd': turn_twist(-math.pi/4)
 }
 
+CLOSE_THRESHOLD = 0.5
+
 graph = Graph()
 last_position = None
 last_orientation = None
+last_name = None
 
 
 class RemoteNode(HdxNode):
@@ -56,15 +59,21 @@ class RemoteNode(HdxNode):
             self.last_key = msg
             if self.last_key in COMMANDS:
                 self.publisher.publish(COMMANDS[msg])
-            self.stdscr.addstr(5, 0, f"{msg} ({self.last_key})        ")
+            self.stdscr.addstr(6, 0, f"{msg} ({self.last_key})        ")
         self.stdscr.refresh()
 
     def printOdometry(self, msg: Odometry):
-        global last_position, last_orientation
+        global graph, last_position, last_orientation, last_name
         p = msg.pose.pose.position
         h = msg.pose.pose.orientation
         self.stdscr.addstr(3, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})        ")
         self.stdscr.addstr(4, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})        ")
+        closest = graph.closest_node_within(p.x, p.y, CLOSE_THRESHOLD)
+        if closest is not None and closest != last_name:
+            if not graph.has_edge(last_name, closest):
+                graph.add_edge(last_name, closest)
+            last_name = closest
+        self.stdscr.addstr(5, 0, f"Closest:     {closest}                                     ")
         self.stdscr.refresh()
         last_position = p
         last_orientation = h
@@ -86,7 +95,7 @@ def my_raw_input(stdscr, row, col, prompt_string):
 
 
 def main(stdscr):
-    global graph, last_position, last_orientation
+    global graph, last_position, last_orientation, last_name
 
     bot = sys.argv[1]
     curses.curs_set(0)
@@ -115,6 +124,9 @@ def main(stdscr):
             name = name.decode('utf-8')
             stdscr.addstr(7, 0, f"Using {name}")
             graph.add_node(name, (last_position.x, last_position.y))
+            if last_name is not None:
+                graph.add_edge(name, last_name)
+            last_name = name
         elif k == 'r':
             stdscr.addstr(1, 0, f"Waiting for reset...{' ' * 30}")
             result = reset_pos(bot)
