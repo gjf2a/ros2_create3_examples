@@ -56,15 +56,15 @@ class RemoteNode(HdxNode):
             self.last_key = msg
             if self.last_key in COMMANDS:
                 self.publisher.publish(COMMANDS[msg])
-            self.stdscr.addstr(5, 0, f"{msg} ({self.last_key})")
+            self.stdscr.addstr(5, 0, f"{msg} ({self.last_key})        ")
         self.stdscr.refresh()
 
     def printOdometry(self, msg: Odometry):
         global last_position, last_orientation
         p = msg.pose.pose.position
         h = msg.pose.pose.orientation
-        self.stdscr.addstr(3, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})")
-        self.stdscr.addstr(4, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})")
+        self.stdscr.addstr(3, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})        ")
+        self.stdscr.addstr(4, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})        ")
         self.stdscr.refresh()
         last_position = p
         last_orientation = h
@@ -81,7 +81,7 @@ def my_raw_input(stdscr, row, col, prompt_string):
     curses.echo()
     stdscr.addstr(row, col, prompt_string)
     stdscr.refresh()
-    text = stdscr.getstr(row + 1, col, 20)
+    text = stdscr.getstr(row, col + 1 + len(prompt_string), 20)
     return text
 
 
@@ -100,16 +100,21 @@ def main(stdscr):
 
     stdscr.addstr(0, 0, 'WASD to move; R to reset position; X to record location; Q to quit')
     stdscr.refresh()
+
+    input_window = curses.newwin(2, 80, 8, 0)
     
     while True:
         k = stdscr.getkey()
         if k == 'q':
             break
         elif k == 'x':
-            name = my_raw_input(stdscr, 8, 0, "Enter name             ").lower().strip()
+            input_window.clear()
+            input_window.refresh()
+            stdscr.addstr(7, 0, f"                                       ")
+            name = my_raw_input(input_window, 0, 0, "Enter name:").lower().strip()
             name = name.decode('utf-8')
-            stdscr.addstr(8, 0, f"Using {name}")
-            graph.add_node(name, (last_position, last_orientation))
+            stdscr.addstr(7, 0, f"Using {name}")
+            graph.add_node(name, (last_position.x, last_position.y))
         elif k == 'r':
             stdscr.addstr(1, 0, f"Waiting for reset...{' ' * 30}")
             result = reset_pos(bot)
