@@ -50,7 +50,7 @@ class RemoteNode(HdxNode):
         self.last_key = None
 
     def listener_callback(self, msg: Odometry):
-        self.printOdometry(msg)
+        self.print_odometry(msg)
 
     def timer_callback(self):
         self.stdscr.addstr(2, 0, f"{self.elapsed_time():7.2f} s")
@@ -62,7 +62,7 @@ class RemoteNode(HdxNode):
             self.stdscr.addstr(6, 0, f"{msg} ({self.last_key})        ")
         self.stdscr.refresh()
 
-    def printOdometry(self, msg: Odometry):
+    def print_odometry(self, msg: Odometry):
         global graph, last_position, last_orientation, last_name
         p = msg.pose.pose.position
         h = msg.pose.pose.orientation
