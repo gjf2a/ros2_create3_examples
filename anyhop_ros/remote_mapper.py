@@ -40,8 +40,6 @@ last_name = None
 class RemoteNode(HdxNode):
     def __init__(self, stdscr, msg_queue, namespace: str = ""):
         super().__init__('odometry_subscriber')
-        self.reset_service = f'ros2 service call /{namespace}/reset_pose '
-        self.reset_service += 'irobot_create_msgs/srv/ResetPose "{pose:{position:{x: 0.0, y: 0.0, z: 0.0}, orientation:{x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}"'
         self.subscription = self.create_subscription(
             Odometry, namespace + '/odom', self.listener_callback,
             qos_profile_sensor_data)
@@ -52,7 +50,7 @@ class RemoteNode(HdxNode):
         self.last_key = None
 
     def listener_callback(self, msg: Odometry):
-        self.printOdometry(msg)
+        self.print_odometry(msg)
 
     def timer_callback(self):
         self.stdscr.addstr(2, 0, f"{self.elapsed_time():7.2f} s")
@@ -61,12 +59,10 @@ class RemoteNode(HdxNode):
             self.last_key = msg
             if self.last_key in COMMANDS:
                 self.publisher.publish(COMMANDS[msg])
-            elif self.last_key == 'r':
-                self.reset_pos()
             self.stdscr.addstr(6, 0, f"{msg} ({self.last_key})        ")
         self.stdscr.refresh()
 
-    def printOdometry(self, msg: Odometry):
+    def print_odometry(self, msg: Odometry):
         global graph, last_position, last_orientation, last_name
         p = msg.pose.pose.position
         h = msg.pose.pose.orientation
@@ -82,14 +78,11 @@ class RemoteNode(HdxNode):
         last_position = p
         last_orientation = h
 
-    def reset_pos(self):
-        self.stdscr.addstr(1, 0, f"Waiting for reset...{' ' * 30}")
-        result = subprocess.run(self.reset_service, shell=True, capture_output=True)
-        if result.returncode == 0:
-            self.stdscr.addstr(1, 0, "Reset complete.     ")
-        else:
-            self.stdscr.addstr(1, 0, "Trouble with reset. ")
-        self.stdscr.refresh()
+
+def reset_pos(bot):
+    call = f'ros2 service call /{bot}/reset_pose irobot_create_msgs/srv/ResetPose '
+    call += '"{pose:{position:{x: 0.0, y: 0.0, z: 0.0}, orientation:{x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}"'
+    return subprocess.run(call, shell=True, capture_output=True)
 
 
 # From: https://stackoverflow.com/questions/21784625/how-to-input-a-word-in-ncurses-screen
@@ -110,7 +103,7 @@ def main(stdscr):
 
     finished = threading.Event()
     msg_queue = Queue(maxsize=1)
-
+    
     st = threading.Thread(target=spin_thread, args=(finished, lambda: RemoteNode(stdscr, msg_queue, f"/{bot}")))
     st.start()
 
@@ -134,6 +127,14 @@ def main(stdscr):
             if last_name is not None:
                 graph.add_edge(name, last_name)
             last_name = name
+        elif k == 'r':
+            stdscr.addstr(1, 0, f"Waiting for reset...{' ' * 30}")
+            result = reset_pos(bot)
+            if result.returncode == 0:
+                stdscr.addstr(1, 0, "Reset complete.     ")
+            else:
+                stdscr.addstr(1, 0, "Trouble with reset. ")
+            stdscr.refresh()
         elif not msg_queue.full():
             msg_queue.put(k)
     finished.set()
