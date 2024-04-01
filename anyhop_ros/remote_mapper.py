@@ -31,12 +31,6 @@ COMMANDS = {
 
 CLOSE_THRESHOLD = 0.5
 
-graph = Graph()
-last_position = None
-last_orientation = None
-last_name = None
-
-
 class RemoteNode(HdxNode):
     def __init__(self, stdscr, cmd_queue, pos_queue, namespace: str = ""):
         super().__init__('odometry_subscriber')
@@ -80,7 +74,11 @@ def my_raw_input(stdscr, row, col, prompt_string):
 
 
 def main(stdscr):
-    global graph, last_position, last_orientation, last_name
+    graph = Graph()
+    last_position = None
+    last_orientation = None
+    last_name = None
+
 
     bot = sys.argv[1]
     curses.curs_set(0)
@@ -146,6 +144,9 @@ def main(stdscr):
             
     finished.set()
     st.join()
+    with open(f"map_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}", 'wb') as file:
+        pickle.dump(graph, file)
+
     
 
 if __name__ == '__main__':
@@ -153,5 +154,3 @@ if __name__ == '__main__':
         print("Usage: remote_bot robot_name")
     else:
         curses.wrapper(main)
-        with open(f"map_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}", 'wb') as file:
-            pickle.dump(graph, file)
