@@ -25,25 +25,31 @@ def main(stdscr):
 
     stdscr.addstr(0, 0, 'WASD to move; R to reset position; X to record location; Q to quit')
     stdscr.refresh()
+    stdscr.nodelay(True)
+    count = 0
     
     while True:
-        k = stdscr.getkey()
-        if k == 'q':
-            break
-        elif k == 'x':
-            name = my_raw_input(stdscr, 8, 0, "Enter name:").lower().strip()
-            name = name.decode('utf-8')
-            stdscr.addstr(8, 0, f"Using {name}                                     ")
-            graph.add_node(name, last_position)
-            last_position = (last_position[0] + 1, last_position[1] + 2)
-        elif k == 'r':
-            stdscr.addstr(1, 0, f"Waiting for reset...{' ' * 30}")
-            result = 0
-            if result.returncode == 0:
-                stdscr.addstr(1, 0, "Reset complete.     ")
-            else:
-                stdscr.addstr(1, 0, "Trouble with reset. ")
-            stdscr.refresh()
+        try:
+            k = stdscr.getkey()
+            if k == 'q':
+                break
+            elif k == 'x':
+                name = my_raw_input(stdscr, 8, 0, "Enter name:").lower().strip()
+                name = name.decode('utf-8')
+                stdscr.addstr(8, 0, f"Using {name}                                     ")
+                graph.add_node(name, last_position)
+                last_position = (last_position[0] + 1, last_position[1] + 2)
+            elif k == 'r':
+                stdscr.addstr(1, 0, f"Waiting for reset...{' ' * 30}")
+                result = 0
+                if result.returncode == 0:
+                    stdscr.addstr(1, 0, "Reset complete.     ")
+                else:
+                    stdscr.addstr(1, 0, "Trouble with reset. ")
+                stdscr.refresh()
+        except curses.error:
+            stdscr.addstr(10, 0, f"{count}")
+            count += 1
     
 
 if __name__ == '__main__':
