@@ -9,7 +9,7 @@ from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist, Pose
-from runner import HdxNode, straight_twist, turn_twist
+from runner import RemoteNode, straight_twist, turn_twist
 
 def spin_thread(finished, node_maker):
     rclpy.init(args=None)
@@ -23,38 +23,6 @@ def spin_thread(finished, node_maker):
 
 
 CLOSE_THRESHOLD = 0.5
-
-class RemoteNode(HdxNode):
-    def __init__(self, cmd_queue, pos_queue, namespace: str = ""):
-        super().__init__('odometry_subscriber')
-
-        self.commands = {
-            'w': straight_twist(0.5),
-            'a': turn_twist(math.pi/4),
-            's': straight_twist(0.0),
-            'd': turn_twist(-math.pi/4)
-        }
-
-        self.subscription = self.create_subscription(
-            Odometry, namespace + '/odom', self.listener_callback,
-            qos_profile_sensor_data)
-        self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
-        self.create_timer(0.1, self.timer_callback)
-        self.cmd_queue = cmd_queue
-        self.pos_queue = pos_queue
-        self.last_key = None
-
-    def listener_callback(self, msg: Odometry):
-        self.pos_queue.put(msg.pose.pose)
-
-    def timer_callback(self):
-        self.pos_queue.put(self.elapsed_time())
-        if not self.cmd_queue.empty():
-            msg = self.cmd_queue.get()
-            self.last_key = msg
-            if self.last_key in self.commands:
-                self.publisher.publish(self.commands[msg])
-                self.pos_queue.put(self.last_key)
 
 
 def reset_pos(bot):

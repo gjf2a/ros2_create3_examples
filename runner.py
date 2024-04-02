@@ -8,6 +8,9 @@ import math
 
 from geometry_msgs.msg import Twist
 from irobot_create_msgs.msg import WheelStatus
+
+from nav_msgs.msg import Odometry
+
 from rclpy.qos import qos_profile_sensor_data
 
 from rclpy.action import ActionClient
@@ -93,6 +96,54 @@ class WheelMonitorNode(HdxNode):
     def wheel_status_callback(self, msg):
         self.record_first_callback()
         self.last_wheel_status = msg
+
+
+class RemoteNode(HdxNode):
+    """
+    ROS2 node that sends driving messages to the robot based on keyboard input,
+    and sends back timing and odometry information.
+
+    Attributes
+    ----------
+    cmd_queue - receives wasd movement commands
+    pos_queue - sends odometry, timestamps, and keys it recognizes
+    subscription - receives odometry information
+    publisher - sends motor commands
+
+    Methods
+    -------
+    listener_callback() - sends pose information when received
+    timer_callback() - sends timing and key information at time intervals.
+    """
+    def __init__(self, cmd_queue, pos_queue, namespace: str = ""):
+        super().__init__('odometry_subscriber')
+
+        self.commands = {
+            'w': straight_twist(0.5),
+            'a': turn_twist(math.pi/4),
+            's': straight_twist(0.0),
+            'd': turn_twist(-math.pi/4)
+        }
+
+        self.subscription = self.create_subscription(
+            Odometry, namespace + '/odom', self.listener_callback,
+            qos_profile_sensor_data)
+        self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
+        self.create_timer(0.1, self.timer_callback)
+        self.cmd_queue = cmd_queue
+        self.pos_queue = pos_queue
+
+    def listener_callback(self, msg: Odometry):
+        self.pos_queue.put(msg.pose.pose)
+
+    def timer_callback(self):
+        self.pos_queue.put(self.elapsed_time())
+        if not self.cmd_queue.empty():
+            msg = self.cmd_queue.get()
+            if msg in self.commands:
+                self.publisher.publish(self.commands[msg])
+                self.pos_queue.put(msg)
+
 
 
 def run_single_node(node_maker):
