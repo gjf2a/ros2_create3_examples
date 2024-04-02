@@ -8,7 +8,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, Pose
 from runner import HdxNode, straight_twist, turn_twist
 
 def spin_thread(finished, node_maker):
@@ -22,18 +22,19 @@ def spin_thread(finished, node_maker):
     rclpy.shutdown()
 
 
-COMMANDS = {
-    'w': straight_twist(0.5),
-    'a': turn_twist(math.pi/4),
-    's': straight_twist(0.0),
-    'd': turn_twist(-math.pi/4)
-}
-
 CLOSE_THRESHOLD = 0.5
 
 class RemoteNode(HdxNode):
-    def __init__(self, stdscr, cmd_queue, pos_queue, namespace: str = ""):
+    def __init__(self, cmd_queue, pos_queue, namespace: str = ""):
         super().__init__('odometry_subscriber')
+
+        self.commands = {
+            'w': straight_twist(0.5),
+            'a': turn_twist(math.pi/4),
+            's': straight_twist(0.0),
+            'd': turn_twist(-math.pi/4)
+        }
+
         self.subscription = self.create_subscription(
             Odometry, namespace + '/odom', self.listener_callback,
             qos_profile_sensor_data)
@@ -41,21 +42,19 @@ class RemoteNode(HdxNode):
         self.create_timer(0.1, self.timer_callback)
         self.cmd_queue = cmd_queue
         self.pos_queue = pos_queue
-        self.stdscr = stdscr
         self.last_key = None
 
     def listener_callback(self, msg: Odometry):
         self.pos_queue.put(msg.pose.pose)
 
     def timer_callback(self):
-        self.stdscr.addstr(2, 0, f"{self.elapsed_time():7.2f} s")
+        self.pos_queue.put(self.elapsed_time())
         if not self.cmd_queue.empty():
             msg = self.cmd_queue.get()
             self.last_key = msg
-            if self.last_key in COMMANDS:
-                self.publisher.publish(COMMANDS[msg])
-            self.stdscr.addstr(6, 0, f"{msg} ({self.last_key})        ")
-        self.stdscr.refresh()
+            if self.last_key in self.commands:
+                self.publisher.publish(self.commands[msg])
+                self.pos_queue.put(self.last_key)
 
 
 def reset_pos(bot):
@@ -86,9 +85,9 @@ def main(stdscr):
 
     finished = threading.Event()
     cmd_queue = Queue(maxsize=1)
-    pos_queue = Queue(maxsize=1)
+    pos_queue = Queue(maxsize=10)
     
-    st = threading.Thread(target=spin_thread, args=(finished, lambda: RemoteNode(stdscr, cmd_queue, pos_queue, f"/{bot}")))
+    st = threading.Thread(target=spin_thread, args=(finished, lambda: RemoteNode(cmd_queue, pos_queue, f"/{bot}")))
     st.start()
 
     stdscr.addstr(0, 0, 'WASD to move; R to reset position; X to record location; Q to quit')
@@ -127,19 +126,24 @@ def main(stdscr):
             # No key pressed
             if not pos_queue.empty():
                 pos = pos_queue.get()
-                p = pos.position
-                h = pos.orientation
-                stdscr.addstr(3, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})        ")
-                stdscr.addstr(4, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})        ")
-                closest = graph.closest_node_within(p.x, p.y, CLOSE_THRESHOLD)
-                if closest is not None and closest != last_name:
-                    if not graph.has_edge(last_name, closest):
-                        graph.add_edge(last_name, closest)
-                    last_name = closest
-                stdscr.addstr(5, 0, f"Closest:     {closest}                                     ")
+                if type(pos) == float:
+                    stdscr.addstr(2, 0, f"{pos:7.2f} s")
+                elif type(pos) == str:
+                    stdscr.addstr(6, 0, f"{pos}                          ")
+                elif type(pos) == Pose:
+                    p = pos.position
+                    h = pos.orientation
+                    stdscr.addstr(3, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})        ")
+                    stdscr.addstr(4, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})        ")
+                    closest = graph.closest_node_within(p.x, p.y, CLOSE_THRESHOLD)
+                    if closest is not None and closest != last_name:
+                        if not graph.has_edge(last_name, closest):
+                            graph.add_edge(last_name, closest)
+                        last_name = closest
+                    stdscr.addstr(5, 0, f"Closest:     {closest}                                     ")
+                    last_position = p
+                    last_orientation = h
                 stdscr.refresh()
-                last_position = p
-                last_orientation = h
 
             
     finished.set()
