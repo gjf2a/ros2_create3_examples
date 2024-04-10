@@ -4,6 +4,9 @@ import cv2
 import curses
 import time
 import numpy as np
+import queue
+import threading
+import sys
 
 colors = [
         (curses.COLOR_BLACK,   (  0,   0,   0)),
@@ -17,10 +20,14 @@ colors = [
 ]
 
 
-def main(stdscr):
-    # Initialize the webcam
-    cap = cv2.VideoCapture(0)
+def video_capture(image_queue, port: int):
+    cap = cv2.VideoCapture(port)
+    while True:
+        ret, frame = cap.read()
+        image_queue.put(frame)
 
+
+def video_display(image_queue, stdscr):
     # Get the screen dimensions
     height, width = stdscr.getmaxyx()
 
@@ -32,22 +39,34 @@ def main(stdscr):
             curses.init_pair(i, curses.COLOR_BLACK, color[0])
 
     while True:
-        # Capture a frame from the webcam
-        ret, frame = cap.read()
-
-        # Resize the frame to fit the window
+        frame = image_queue.get()
+        while not image_queue.empty():
+            frame = image_queue.get()
         frame = cv2.resize(frame, (width, height))
 
-        # Update the window with the grayscale frame
         for y in range(height - 1):
             for x in range(width):
-                win.addch(y, x, '.', curses.color_pair(color_from(frame[y, x])))    
+                win.addch(y, x, '.', curses.color_pair(color_from(frame[y, x]))) 
 
         # Refresh the window
         win.refresh()
 
-        # Wait for a short time to control the frame rate
-        #time.sleep(0.1)
+
+def main(stdscr):
+    image_queue = queue.Queue()
+    capture_thread = threading.Thread(target=video_capture, args=(image_queue, 0))
+    display_thread = threading.Thread(target=video_display, args=(image_queue, stdscr))
+    capture_thread.daemon = True
+    display_thread.daemon = True
+    capture_thread.start()
+    display_thread.start()
+
+    while True:
+        try:
+            time.sleep(1)
+        except KeyboardInterrupt:
+            sys.exit(0)
+    
 
 def euclidean_distance(a, b):
     assert len(a) == len(b)
