@@ -20,14 +20,14 @@ colors = [
 ]
 
 
-def video_capture(image_queue, port: int):
+def video_capture(event, image_queue, port: int):
     cap = cv2.VideoCapture(port)
-    while True:
+    while event.is_set():
         ret, frame = cap.read()
         image_queue.put(frame)
 
 
-def video_display(image_queue, stdscr):
+def video_display(event, image_queue, stdscr):
     # Get the screen dimensions
     height, width = stdscr.getmaxyx()
 
@@ -38,7 +38,7 @@ def video_display(image_queue, stdscr):
         if i > 0:
             curses.init_pair(i, curses.COLOR_BLACK, color[0])
 
-    while True:
+    while event.is_set():
         frame = image_queue.get()
         while not image_queue.empty():
             frame = image_queue.get()
@@ -53,19 +53,21 @@ def video_display(image_queue, stdscr):
 
 
 def main(stdscr):
+    event = threading.Event()
     image_queue = queue.Queue()
-    capture_thread = threading.Thread(target=video_capture, args=(image_queue, 0))
-    display_thread = threading.Thread(target=video_display, args=(image_queue, stdscr))
-    capture_thread.daemon = True
-    display_thread.daemon = True
+    event.set()
+
+    capture_thread = threading.Thread(target=video_capture, args=(event, image_queue, 0), daemon=True)
+    display_thread = threading.Thread(target=video_display, args=(event, image_queue, stdscr), daemon=True)
     capture_thread.start()
     display_thread.start()
 
-    while True:
-        try:
-            time.sleep(1)
-        except KeyboardInterrupt:
-            sys.exit(0)
+    stdscr.getch()
+    event.clear()    
+
+    capture_thread.join()
+    display_thread.join()
+    
     
 
 def euclidean_distance(a, b):
