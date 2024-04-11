@@ -28,11 +28,16 @@ def video_capture(event, image_queue, port: int):
 
 
 def video_display(event, image_queue, stdscr):
+    start = time.time()
+
     # Get the screen dimensions
     height, width = stdscr.getmaxyx()
 
     # Create a window to display the webcam feed
     win = curses.newwin(height, width, 0, 0)
+
+    frames_acquired = 0
+    frames_displayed = 0
 
     for i, color in enumerate(colors):
         if i > 0:
@@ -40,13 +45,18 @@ def video_display(event, image_queue, stdscr):
 
     while event.is_set():
         frame = image_queue.get()
+        frames_acquired += 1
         while not image_queue.empty():
             frame = image_queue.get()
+            frames_acquired += 1
         frame = cv2.resize(frame, (width, height))
 
         for y in range(height - 1):
             for x in range(width):
                 win.addch(y, x, '.', curses.color_pair(color_from(frame[y, x]))) 
+        frames_displayed += 1
+        elapsed = time.time() - start
+        win.addstr(0, 0, f"{frames_displayed / elapsed:.2f} hz ({frames_acquired / elapsed:.2f} hz)")
 
         # Refresh the window
         win.refresh()
