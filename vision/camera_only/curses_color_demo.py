@@ -8,20 +8,23 @@ import queue
 import threading
 import sys
 
+colors = [
+        (curses.COLOR_BLACK,   (  0,   0,   0)),
+        (curses.COLOR_RED,     (255,   0,   0)), 
+        (curses.COLOR_GREEN,   (  0, 255,   0)), 
+        (curses.COLOR_YELLOW,  (255, 255,   0)), 
+        (curses.COLOR_BLUE,    (  0,   0, 255)), 
+        (curses.COLOR_MAGENTA, (255,   0, 255)), 
+        (curses.COLOR_CYAN,    (  0, 255, 255)), 
+        (curses.COLOR_WHITE,   (255, 255, 255))
+]
+
 
 def video_capture(event, image_queue, port: int):
     cap = cv2.VideoCapture(port)
     while event.is_set():
         ret, frame = cap.read()
         image_queue.put(frame)
-
-
-encodings = [' ', '.', ':', ';', '!', '?', '+', '*', '@', '#']
-
-
-def gray2char(gray):
-    gap = 1 + (255 // len(encodings))
-    return encodings[gray // gap]
 
 
 def video_display(event, image_queue, stdscr):
@@ -36,6 +39,10 @@ def video_display(event, image_queue, stdscr):
     frames_acquired = 0
     frames_displayed = 0
 
+    for i, color in enumerate(colors):
+        if i > 0:
+            curses.init_pair(i, curses.COLOR_BLACK, color[0])
+
     while event.is_set():
         frame = image_queue.get()
         frames_acquired += 1
@@ -43,11 +50,10 @@ def video_display(event, image_queue, stdscr):
             frame = image_queue.get()
             frames_acquired += 1
         frame = cv2.resize(frame, (width, height))
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         for y in range(height - 1):
             for x in range(width):
-                win.addch(y, x, gray2char(gray[y, x]))
+                win.addch(y, x, '.', curses.color_pair(color_from(frame[y, x]))) 
         frames_displayed += 1
         elapsed = time.time() - start
         win.addstr(0, 0, f"{frames_displayed / elapsed:.2f} hz ({frames_acquired / elapsed:.2f} hz)")
