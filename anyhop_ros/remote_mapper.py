@@ -78,16 +78,19 @@ class Runner:
 
         while self.running.is_set(): 
             try:
-                self.handle_image()
                 self.handle_key()
             except curses.error:
                 self.no_key()
+            self.handle_image()
 
         self.capture_thread.join()
-        self.robot_thread.join()
+        #self.robot_thread.join()
     
         with open(f"map_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}", 'wb') as file:
             pickle.dump(self.graph, file)
+
+        rclpy.shutdown()
+        sys.exit(0)
 
     def handle_image(self):
         frame = None
