@@ -1,7 +1,7 @@
 import threading, subprocess, sys, math, curses, pickle, datetime
 
 from pyhop_anytime import *
-from curses_vision_demo import video_capture, video_display
+from curses_vision_demo import video_capture, display_frame
 
 from queue import Queue
 
@@ -50,11 +50,12 @@ class Runner:
         self.last_name = None
         self.bot = sys.argv[1]
 
-        screen_height, screen_width = stdscr.getmaxyx()
-        self.info_window = curses.newwin(8, screen_width, 0, 0)
-        self.input_window = curses.newwin(2, screen_width, 8, 0)
-        self.image_window = curses.newwin(screen_height - 12, screen_width, 11, 0)
-        self.stdscr = stdscr
+        self.height, self.width = stdscr.getmaxyx()
+
+        self.info_window = curses.newwin(8, self.width, 0, 0)
+        self.input_window = curses.newwin(2, self.width, 8, 0)
+        self.image_window = curses.newwin(self.height - 12, self.width, 11, 0)
+        self.robot_threaddscr = stdscr
 
         self.running = threading.Event()
         self.cmd_queue = Queue(maxsize=1)
@@ -63,35 +64,42 @@ class Runner:
 
     def main_loop(self):
         self.running.set()
-        self.st = threading.Thread(target=spin_thread, args=(self.running, lambda: RemoteNode(self.cmd_queue, self.pos_queue, f"/{self.bot}")))
+        self.robot_thread = threading.Thread(target=spin_thread, args=(self.running, lambda: RemoteNode(self.cmd_queue, self.pos_queue, f"/{self.bot}")))
 
         self.info_window.addstr(0, 0, 'WASD to move; R to reset position; X to record location; Q to quit')
         self.info_window.refresh()
 
-        self.stdscr.nodelay(True)
+        self.robot_threaddscr.nodelay(True)
 
         self.capture_thread = threading.Thread(target=video_capture, args=(self.running, self.image_queue, 0), daemon=True)
-        self.display_thread = threading.Thread(target=video_display, args=(self.running, self.image_queue, self.image_window), daemon=True)
 
-        self.st.start()
+        self.robot_thread.start()
         self.capture_thread.start()
-        self.display_thread.start()
 
         while self.running.is_set(): 
             try:
+                self.handle_image()
                 self.handle_key()
             except curses.error:
                 self.no_key()
 
-        self.st.join()
         self.capture_thread.join()
-        self.display_thread.join()
+        self.robot_thread.join()
     
         with open(f"map_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}", 'wb') as file:
             pickle.dump(self.graph, file)
 
+    def handle_image(self):
+        frame = None
+        while not self.image_queue.empty():
+            frame = self.image_queue.get()
+        if frame is not None:
+            display_frame(frame, self.image_window)
+            self.image_window.refresh()
+        
+
     def handle_key(self):
-        k = self.stdscr.getkey()
+        k = self.robot_threaddscr.getkey()
         if k == 'q':
             self.running.clear()
         elif k == 'x':

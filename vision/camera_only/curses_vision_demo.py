@@ -35,8 +35,6 @@ def video_display(event, image_queue, win):
     frames_acquired = 0
     frames_displayed = 0
 
-    height, width = win.getmaxyx()
-
     while event.is_set():
         frame = image_queue.get()
         if start is None:
@@ -45,18 +43,25 @@ def video_display(event, image_queue, win):
         while not image_queue.empty():
             frame = image_queue.get()
             frames_acquired += 1
-        frame = cv2.resize(frame, (width, height - 1))
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        for y in range(height - 1):
-            for x in range(width):
-                win.addch(y, x, gray2char(gray[y, x]))
+        display_frame(frame, win)
+
         frames_displayed += 1
         elapsed = time.time() - start
         win.addstr(0, 0, f"{frames_displayed / elapsed:.2f} hz ({frames_acquired / elapsed:.2f} hz)")
 
         # Refresh the window
         win.refresh()
+
+
+def display_frame(frame, win):
+    height, width = win.getmaxyx()
+    frame = cv2.resize(frame, (width, height))
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    for y in range(height - 1):
+        for x in range(width):
+            win.addch(y, x, gray2char(gray[y, x]))
+
 
 
 def main(stdscr):
