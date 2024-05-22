@@ -48,8 +48,12 @@ class Runner:
         self.last_position = None
         self.last_orientation = None
         self.last_name = None
-
         self.bot = sys.argv[1]
+
+        screen_height, screen_width = stdscr.getmaxyx()
+        self.info_window = curses.newwin(8, screen_width, 0, 0)
+        self.input_window = curses.newwin(2, screen_width, 8, 0)
+        self.image_window = curses.newwin(screen_height - 12, screen_width, 11, 0)
         self.stdscr = stdscr
 
         self.running = threading.Event()
@@ -61,14 +65,10 @@ class Runner:
         self.running.set()
         self.st = threading.Thread(target=spin_thread, args=(self.running, lambda: RemoteNode(self.cmd_queue, self.pos_queue, f"/{self.bot}")))
 
-        self.stdscr.addstr(0, 0, 'WASD to move; R to reset position; X to record location; Q to quit')
-        self.stdscr.refresh()
+        self.info_window.addstr(0, 0, 'WASD to move; R to reset position; X to record location; Q to quit')
+        self.info_window.refresh()
 
         self.stdscr.nodelay(True)
-        self.input_window = curses.newwin(2, 80, 8, 0)
-
-        screen_height, screen_width = self.stdscr.getmaxyx()
-        self.image_window = curses.newwin(screen_height - 11, screen_width, 10, 0)
 
         self.capture_thread = threading.Thread(target=video_capture, args=(self.running, self.image_queue, 0), daemon=True)
         self.display_thread = threading.Thread(target=video_display, args=(self.running, self.image_queue, self.image_window), daemon=True)
@@ -97,22 +97,23 @@ class Runner:
         elif k == 'x':
             self.input_window.clear()
             self.input_window.refresh()
-            self.stdscr.addstr(7, 0, f"                                       ")
+            self.info_window.addstr(7, 0, f"                                       ")
             name = my_raw_input(self.input_window, 0, 0, "Enter name:").lower().strip()
             name = name.decode('utf-8')
-            self.stdscr.addstr(7, 0, f"Using {name}")
+            self.info_window.addstr(7, 0, f"Using {name}")
             self.graph.add_node(name, (self.last_position.x, self.last_position.y))
             if self.last_name is not None:
                 self.graph.add_edge(name, self.last_name)
             self.last_name = name
+            self.info_window.refresh()
         elif k == 'r':
-            self.stdscr.addstr(1, 0, f"Waiting for reset...{' ' * 30}")
+            self.info_window.addstr(1, 0, f"Waiting for reset...{' ' * 30}")
             result = reset_pos(self.bot)
             if result.returncode == 0:
-                self.stdscr.addstr(1, 0, "Reset complete.     ")
+                self.info_window.addstr(1, 0, "Reset complete.     ")
             else:
-                self.stdscr.addstr(1, 0, "Trouble with reset. ")
-            self.stdscr.refresh()
+                self.info_window.addstr(1, 0, "Trouble with reset. ")
+            self.info_window.refresh()
         elif not self.cmd_queue.full():
             self.cmd_queue.put(k)
 
@@ -120,23 +121,23 @@ class Runner:
         if not self.pos_queue.empty():
             pos = self.pos_queue.get()
             if type(pos) == float:
-                self.stdscr.addstr(2, 0, f"{pos:7.2f} s")
+                self.info_window.addstr(2, 0, f"{pos:7.2f} s")
             elif type(pos) == str:
-                self.stdscr.addstr(6, 0, f"{pos}                          ")
+                self.info_window.addstr(6, 0, f"{pos}                          ")
             elif type(pos) == Pose:
                 p = pos.position
                 h = pos.orientation
-                self.stdscr.addstr(3, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})        ")
-                self.stdscr.addstr(4, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})        ")
+                self.info_window.addstr(3, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})        ")
+                self.info_window.addstr(4, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})        ")
                 closest = self.graph.closest_node_within(p.x, p.y, CLOSE_THRESHOLD)
                 if closest is not None and closest != self.last_name:
                     if not self.graph.has_edge(self.last_name, closest):
                         self.graph.add_edge(self.last_name, closest)
                     self.last_name = closest
-                self.stdscr.addstr(5, 0, f"Closest:     {closest}                                     ")
+                self.info_window.addstr(5, 0, f"Closest:     {closest}                                     ")
                 self.last_position = p
                 self.last_orientation = h
-            self.stdscr.refresh()
+            self.info_window.refresh()
     
         
 def run_runner(stdscr):

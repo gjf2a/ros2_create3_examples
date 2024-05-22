@@ -45,7 +45,7 @@ def video_display(event, image_queue, win):
         while not image_queue.empty():
             frame = image_queue.get()
             frames_acquired += 1
-        frame = cv2.resize(frame, (width, height))
+        frame = cv2.resize(frame, (width, height - 1))
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         for y in range(height - 1):
