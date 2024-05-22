@@ -1,6 +1,7 @@
 import threading, subprocess, sys, math, curses, pickle, datetime
 
 from pyhop_anytime import *
+from curses_vision_demo import video_capture, video_display
 
 from queue import Queue
 
@@ -11,12 +12,13 @@ from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist, Pose
 from runner import RemoteNode, straight_twist, turn_twist
 
-def spin_thread(finished, node_maker):
+
+def spin_thread(running, node_maker):
     rclpy.init(args=None)
     executor = rclpy.get_global_executor()
     node = node_maker()
     executor.add_node(node)
-    while executor.context.ok() and not finished.is_set() and not node.quitting():
+    while executor.context.ok() and running.is_set() and not node.quitting():
         executor.spin_once()
     node.reset()
     rclpy.shutdown()
@@ -50,29 +52,40 @@ class Runner:
         self.bot = sys.argv[1]
         self.stdscr = stdscr
 
-        self.finished = threading.Event()
+        self.running = threading.Event()
         self.cmd_queue = Queue(maxsize=1)
         self.pos_queue = Queue(maxsize=10)
-
-        self.st = threading.Thread(target=spin_thread, args=(self.finished, lambda: RemoteNode(self.cmd_queue, self.pos_queue, f"/{self.bot}")))
-        self.running = True
+        self.image_queue = Queue()
 
     def main_loop(self):
-        self.st.start()
+        self.running.set()
+        self.st = threading.Thread(target=spin_thread, args=(self.running, lambda: RemoteNode(self.cmd_queue, self.pos_queue, f"/{self.bot}")))
+
         self.stdscr.addstr(0, 0, 'WASD to move; R to reset position; X to record location; Q to quit')
         self.stdscr.refresh()
 
         self.stdscr.nodelay(True)
         self.input_window = curses.newwin(2, 80, 8, 0)
 
-        while self.running: 
+        screen_height, screen_width = self.stdscr.getmaxyx()
+        self.image_window = curses.newwin(screen_height - 11, screen_width, 10, 0)
+
+        self.capture_thread = threading.Thread(target=video_capture, args=(self.running, self.image_queue, 0), daemon=True)
+        self.display_thread = threading.Thread(target=video_display, args=(self.running, self.image_queue, self.image_window), daemon=True)
+
+        self.st.start()
+        self.capture_thread.start()
+        self.display_thread.start()
+
+        while self.running.is_set(): 
             try:
                 self.handle_key()
             except curses.error:
                 self.no_key()
 
-        self.finished.set()
         self.st.join()
+        self.capture_thread.join()
+        self.display_thread.join()
     
         with open(f"map_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}", 'wb') as file:
             pickle.dump(self.graph, file)
@@ -80,7 +93,7 @@ class Runner:
     def handle_key(self):
         k = self.stdscr.getkey()
         if k == 'q':
-            self.running = False
+            self.running.clear()
         elif k == 'x':
             self.input_window.clear()
             self.input_window.refresh()
