@@ -10,7 +10,7 @@ from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist, Pose
-from runner import RemoteNode, straight_twist, turn_twist
+from runner import RemoteNode, straight_twist, turn_twist, drain_queue
 
 
 def spin_thread(running, node_maker):
@@ -80,7 +80,8 @@ class Runner:
             try:
                 self.handle_key()
             except curses.error:
-                self.no_key()
+                pass
+            self.no_key()
             self.handle_image()
 
         self.capture_thread.join()
@@ -91,9 +92,7 @@ class Runner:
 
 
     def handle_image(self):
-        frame = None
-        while not self.image_queue.empty():
-            frame = self.image_queue.get()
+        frame = drain_queue(self.image_queue)
         if frame is not None:
             display_frame(frame, self.image_window)
             self.image_window.refresh()
@@ -127,8 +126,8 @@ class Runner:
             self.cmd_queue.put(k)
 
     def no_key(self):
-        if not self.pos_queue.empty():
-            pos = self.pos_queue.get()
+        pos = drain_queue(self.pos_queue)
+        if pos is not None:
             if type(pos) == float:
                 self.info_window.addstr(2, 0, f"{pos:7.2f} s")
             elif type(pos) == str:

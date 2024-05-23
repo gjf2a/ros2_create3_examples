@@ -17,6 +17,14 @@ from rclpy.action import ActionClient
 from irobot_create_msgs.action import RotateAngle, DriveDistance
 
 
+def drain_queue(q):
+    result = None
+    while not q.empty():
+        result = q.get()
+    return result
+
+
+
 def straight_twist(vel):
     t = Twist()
     t.linear.x = vel
@@ -138,9 +146,7 @@ class RemoteNode(HdxNode):
 
     def timer_callback(self):
         self.pos_queue.put(self.elapsed_time())
-        msg = None
-        while not self.cmd_queue.empty():
-            msg = self.cmd_queue.get()
+        msg = drain_queue(self.cmd_queue)
         if msg is not None and msg in self.commands:
             self.publisher.publish(self.commands[msg])
             self.pos_queue.put(msg)
