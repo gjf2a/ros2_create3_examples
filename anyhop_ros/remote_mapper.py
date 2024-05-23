@@ -59,7 +59,7 @@ class Runner:
 
         self.running = threading.Event()
         self.cmd_queue = Queue(maxsize=1)
-        self.pos_queue = Queue(maxsize=10)
+        self.pos_queue = Queue()
         self.image_queue = Queue()
 
     def main_loop(self):
@@ -84,13 +84,11 @@ class Runner:
             self.handle_image()
 
         self.capture_thread.join()
-        #self.robot_thread.join()
+        self.robot_thread.join()
     
         with open(f"map_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}", 'wb') as file:
             pickle.dump(self.graph, file)
 
-        rclpy.shutdown()
-        sys.exit(0)
 
     def handle_image(self):
         frame = None
@@ -149,7 +147,7 @@ class Runner:
                 self.last_position = p
                 self.last_orientation = h
             self.info_window.refresh()
-    
+
         
 def run_runner(stdscr):
     r = Runner(stdscr)
