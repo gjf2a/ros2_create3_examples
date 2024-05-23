@@ -138,11 +138,12 @@ class RemoteNode(HdxNode):
 
     def timer_callback(self):
         self.pos_queue.put(self.elapsed_time())
-        if not self.cmd_queue.empty():
+        msg = None
+        while not self.cmd_queue.empty():
             msg = self.cmd_queue.get()
-            if msg in self.commands:
-                self.publisher.publish(self.commands[msg])
-                self.pos_queue.put(msg)
+        if msg is not None and msg in self.commands:
+            self.publisher.publish(self.commands[msg])
+            self.pos_queue.put(msg)
 
 
 

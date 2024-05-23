@@ -58,7 +58,7 @@ class Runner:
         self.robot_threaddscr = stdscr
 
         self.running = threading.Event()
-        self.cmd_queue = Queue(maxsize=1)
+        self.cmd_queue = Queue()
         self.pos_queue = Queue()
         self.image_queue = Queue()
 
@@ -123,7 +123,7 @@ class Runner:
             else:
                 self.info_window.addstr(1, 0, "Trouble with reset. ")
             self.info_window.refresh()
-        elif not self.cmd_queue.full():
+        else:
             self.cmd_queue.put(k)
 
     def no_key(self):
