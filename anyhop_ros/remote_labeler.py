@@ -11,7 +11,6 @@ from rclpy.qos import qos_profile_sensor_data
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist, Pose
 from runner import RemoteNode, straight_twist, turn_twist, drain_queue
-from occupancy_grid import OccupancyGrid
 
 
 def spin_thread(running, node_maker):
@@ -45,13 +44,17 @@ def my_raw_input(stdscr, row, col, prompt_string):
 
 class Runner:
     def __init__(self, stdscr):
-        self.map = OccupancyGrid()
+        self.graph = Graph()
+        self.last_position = None
+        self.last_orientation = None
+        self.last_name = None
         self.bot = sys.argv[1]
 
         self.height, self.width = stdscr.getmaxyx()
 
         self.info_window = curses.newwin(8, self.width, 0, 0)
-        self.image_window = curses.newwin(self.height - 10, self.width, 10, 0)
+        self.input_window = curses.newwin(2, self.width, 8, 0)
+        self.image_window = curses.newwin(self.height - 12, self.width, 11, 0)
         self.robot_threaddscr = stdscr
 
         self.running = threading.Event()
@@ -78,14 +81,14 @@ class Runner:
                 self.handle_key()
             except curses.error:
                 pass
-            self.handle_position()
+            self.no_key()
             self.handle_image()
 
         self.capture_thread.join()
         self.robot_thread.join()
     
         with open(f"map_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}", 'wb') as file:
-            pickle.dump(self.map, file)
+            pickle.dump(self.graph, file)
 
 
     def handle_image(self):
@@ -99,6 +102,18 @@ class Runner:
         k = self.robot_threaddscr.getkey()
         if k == 'q':
             self.running.clear()
+        elif k == 'x':
+            self.input_window.clear()
+            self.input_window.refresh()
+            self.info_window.addstr(7, 0, f"                                       ")
+            name = my_raw_input(self.input_window, 0, 0, "Enter name:").lower().strip()
+            name = name.decode('utf-8')
+            self.info_window.addstr(7, 0, f"Using {name}")
+            self.graph.add_node(name, (self.last_position.x, self.last_position.y))
+            if self.last_name is not None:
+                self.graph.add_edge(name, self.last_name)
+            self.last_name = name
+            self.info_window.refresh()
         elif k == 'r':
             self.info_window.addstr(1, 0, f"Waiting for reset...{' ' * 30}")
             result = reset_pos(self.bot)
@@ -110,17 +125,26 @@ class Runner:
         else:
             self.cmd_queue.put(k)
 
-    def handle_position(self):
+    def no_key(self):
         pos = drain_queue(self.pos_queue)
         if pos is not None:
             if type(pos) == float:
                 self.info_window.addstr(2, 0, f"{pos:7.2f} s")
+            elif type(pos) == str:
+                self.info_window.addstr(6, 0, f"{pos}                          ")
             elif type(pos) == Pose:
                 p = pos.position
                 h = pos.orientation
                 self.info_window.addstr(3, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})        ")
                 self.info_window.addstr(4, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})        ")
-                self.map.visit(p.x, p.y)
+                closest = self.graph.closest_node_within(p.x, p.y, CLOSE_THRESHOLD)
+                if closest is not None and closest != self.last_name:
+                    if not self.graph.has_edge(self.last_name, closest):
+                        self.graph.add_edge(self.last_name, closest)
+                    self.last_name = closest
+                self.info_window.addstr(5, 0, f"Closest:     {closest}                                     ")
+                self.last_position = p
+                self.last_orientation = h
             self.info_window.refresh()
 
         
@@ -133,6 +157,6 @@ def run_runner(stdscr):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print("Usage: remote_mapper robot_name")
+        print("Usage: remote_bot robot_name")
     else:
         curses.wrapper(run_runner)
