@@ -1,3 +1,5 @@
+from pyhop_anytime import Graph
+
 START_CHAR = 65
 
 class PathwayGrid:
@@ -72,14 +74,6 @@ class PathwayGrid:
         y_spot = y - self.y_min_square + START_CHAR
         return f"{chr(x_spot)}{chr(y_spot)}"
 
-    def encoded_point_in_meters(self, encoded):
-        if encoded == "$$":
-            return (0, 0)
-
-        x = ord(encoded[0]) - START_CHAR + self.x_min_square
-        y = ord(encoded[1]) - START_CHAR + self.y_min_square
-        return (x * self.meters_per_square, y * self.meters_per_square)
-
     def occupancy_str(self):
         if self.empty():
             return "No visits"
@@ -116,13 +110,25 @@ class PathwayGrid:
             result = ''
             points = self.rotated_grid_points() if self.rotate else self.console_grid_points()
             for row in points:
-                for point in row:
-                    if point in self.visited:
-                        result += self.encode_point(point[0], point[1]) + " "
+                for (x, y) in row:
+                    if (x, y) in self.visited:
+                        result += self.encode_point(x, y) + " "
                     else:
                         result += '   '
                 result += '\n'
             return result                
+
+    def square_graph(self):
+        g = Graph()
+        for i, (x, y) in enumerate(self.pathway):
+            current_name = self.encode_point(x, y)
+            if not g.has_node(current_name): 
+                g.add_node(current_name, (x * self.meters_per_square, y * self.meters_per_square))
+            if i > 0:
+                px, py = self.pathway[i - 1]
+                prev_name = self.encode_point(px, py)
+                g.add_edge(prev_name, current_name)
+        return g 
                     
                     
 def point_dir_char(start, end):

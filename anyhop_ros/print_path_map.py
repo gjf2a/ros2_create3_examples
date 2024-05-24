@@ -12,3 +12,5 @@ if __name__ == '__main__':
             print(g.path_str())
             print()
             print(g.square_name_str())
+            print()
+            g.square_graph().print_graph()
