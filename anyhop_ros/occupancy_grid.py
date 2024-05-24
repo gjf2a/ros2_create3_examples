@@ -1,3 +1,5 @@
+START_CHAR = 65
+
 class PathwayGrid:
     def __init__(self, meters_per_square=1):
         self.meters_per_square = meters_per_square
@@ -62,6 +64,22 @@ class PathwayGrid:
                 result[pos] = (x, y)
         return result
 
+    def encode_point(self, x, y):
+        if (x, y) == (0, 0):
+            return "$$"
+
+        x_spot = x - self.x_min_square + START_CHAR
+        y_spot = y - self.y_min_square + START_CHAR
+        return f"{chr(x_spot)}{chr(y_spot)}"
+
+    def encoded_point_in_meters(self, encoded):
+        if encoded == "$$":
+            return (0, 0)
+
+        x = ord(encoded[0]) - START_CHAR + self.x_min_square
+        y = ord(encoded[1]) - START_CHAR + self.y_min_square
+        return (x * self.meters_per_square, y * self.meters_per_square)
+
     def occupancy_str(self):
         if self.empty():
             return "No visits"
@@ -90,6 +108,21 @@ class PathwayGrid:
                 chars[start[1]][start[0]] = point_dir_char(start, end)
             rows = [''.join(row) for row in chars]
             return '\n'.join(rows)
+
+    def square_name_str(self):
+        if self.empty():
+            return "No map"
+        else:
+            result = ''
+            points = self.rotated_grid_points() if self.rotate else self.console_grid_points()
+            for row in points:
+                for point in row:
+                    if point in self.visited:
+                        result += self.encode_point(point[0], point[1]) + " "
+                    else:
+                        result += '   '
+                result += '\n'
+            return result                
                     
                     
 def point_dir_char(start, end):
