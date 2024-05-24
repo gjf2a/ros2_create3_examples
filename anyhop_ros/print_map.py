@@ -6,4 +6,5 @@ if __name__ == '__main__':
     else:
         with open(sys.argv[1], 'rb') as f:
             g = pickle.load(f)
+            g.rotate = True
             print(g)

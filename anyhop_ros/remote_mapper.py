@@ -11,7 +11,7 @@ from rclpy.qos import qos_profile_sensor_data
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist, Pose
 from runner import RemoteNode, straight_twist, turn_twist, drain_queue
-from occupancy_grid import OccupancyGrid
+from occupancy_grid import DirectionalGrid
 
 
 def spin_thread(running, node_maker):
@@ -45,7 +45,7 @@ def my_raw_input(stdscr, row, col, prompt_string):
 
 class Runner:
     def __init__(self, stdscr):
-        self.map = OccupancyGrid()
+        self.map = DirectionalGrid()
         self.bot = sys.argv[1]
 
         self.height, self.width = stdscr.getmaxyx()
