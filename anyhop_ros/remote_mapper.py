@@ -58,12 +58,14 @@ class Runner:
         self.cmd_queue = Queue()
         self.pos_queue = Queue()
         self.image_queue = Queue()
+        self.last_cmd = None
+        self.last_time = None
 
     def main_loop(self):
         self.running.set()
         self.robot_thread = threading.Thread(target=spin_thread, args=(self.running, lambda: RemoteNode(self.cmd_queue, self.pos_queue, f"/{self.bot}")))
 
-        self.info_window.addstr(0, 0, 'WASD to move; R to reset position; X to record location; Q to quit')
+        self.info_window.addstr(0, 0, 'WASD to move; R to reset position; Q to quit')
         self.info_window.refresh()
 
         self.robot_threaddscr.nodelay(True)
@@ -87,16 +89,15 @@ class Runner:
         with open(f"map_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}", 'wb') as file:
             pickle.dump(self.map, file)
 
-
     def handle_image(self):
         frame = drain_queue(self.image_queue)
         if frame is not None:
             display_frame(frame, self.image_window)
             self.image_window.refresh()
-        
 
     def handle_key(self):
         k = self.robot_threaddscr.getkey()
+        curses.flushinp()
         if k == 'q':
             self.running.clear()
         elif k == 'r':
@@ -108,20 +109,38 @@ class Runner:
                 self.info_window.addstr(1, 0, "Trouble with reset. ")
             self.info_window.refresh()
         else:
-            self.cmd_queue.put(k)
+            if self.last_cmd is None:
+                self.cmd_queue.put(k)
+                self.last_cmd = f"Sent {k}: {self.last_time:.2f} s          "
 
     def handle_position(self):
-        pos = drain_queue(self.pos_queue)
-        if pos is not None:
+        self.info_window.addstr(0, 0, 'WASD to move; R to reset position; Q to quit')
+        time_update = False
+        ack = None
+        pose = None
+        while not self.pos_queue.empty():
+            pos = self.pos_queue.get()
             if type(pos) == float:
-                self.info_window.addstr(2, 0, f"{pos:7.2f} s")
+                self.last_time = pos
+                time_update = True
+            elif type(pos) == str:
+                ack = f"Executed {pos}: {self.last_time:.2f} s"
             elif type(pos) == Pose:
-                p = pos.position
-                h = pos.orientation
-                self.info_window.addstr(3, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})        ")
-                self.info_window.addstr(4, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})        ")
-                self.map.visit(p.x, p.y)
-            self.info_window.refresh()
+                pose = pos
+        if time_update:
+            if self.last_cmd is not None:
+                self.info_window.addstr(1, 0, self.last_cmd)
+            self.info_window.addstr(2, 0, f"{self.last_time:.2f} s")
+        if ack:
+            self.info_window.addstr(1, 0, ack)
+            self.last_cmd = None
+        if pose:
+            p = pose.position
+            h = pose.orientation
+            self.info_window.addstr(3, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})        ")
+            self.info_window.addstr(4, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})        ")
+            self.map.visit(p.x, p.y)
+        self.info_window.refresh()
 
         
 def run_runner(stdscr):

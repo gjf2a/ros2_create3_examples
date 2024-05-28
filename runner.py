@@ -149,7 +149,8 @@ class RemoteNode(HdxNode):
         msg = drain_queue(self.cmd_queue)
         if msg is not None and msg in self.commands:
             self.publisher.publish(self.commands[msg])
-            self.pos_queue.put(msg)
+            # Send an echo so the sender knows the publish happened.
+            self.pos_queue.put(msg) 
 
 
 
