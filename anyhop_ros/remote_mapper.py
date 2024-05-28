@@ -109,9 +109,8 @@ class Runner:
                 self.info_window.addstr(1, 0, "Trouble with reset. ")
             self.info_window.refresh()
         else:
-            if self.last_cmd is None:
-                self.cmd_queue.put(k)
-                self.last_cmd = f"Sent {k}: {self.last_time:.2f} s          "
+            self.cmd_queue.put(k)
+            self.last_cmd = f"Sent {k}: {self.last_time:.2f} s          "
 
     def handle_position(self):
         self.info_window.addstr(0, 0, 'WASD to move; R to reset position; Q to quit')
