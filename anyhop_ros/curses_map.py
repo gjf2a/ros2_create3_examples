@@ -1,3 +1,14 @@
+## TODO:
+## * Set up a ROS connection
+##   * Display current location information from the robot
+## * Use the NavClient class to send a robot to a location
+##   * Only allow this if it is adjacent to the new location
+## * Create a plan to send the robot to any location using the
+##   map_graph object as a data source.
+##   * Create a plan sequencer to carry out the plan.
+##   * The sequencer will display progress and allow 
+##     stopping the robot prematurely as well.
+
 import pickle, sys, curses
 
 def main(stdscr):
