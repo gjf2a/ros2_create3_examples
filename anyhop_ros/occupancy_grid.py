@@ -122,7 +122,7 @@ class PathwayGrid:
         g = Graph()
         for i, (x, y) in enumerate(self.pathway):
             current_name = self.encode_point(x, y)
-            if not g.has_node(current_name): 
+            if current_name not in g: 
                 g.add_node(current_name, (x * self.meters_per_square, y * self.meters_per_square))
             if i > 0:
                 px, py = self.pathway[i - 1]

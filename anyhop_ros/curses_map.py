@@ -10,7 +10,7 @@
 ##     stopping the robot prematurely as well.
 
 import pickle, sys, curses
-import threading, queue
+import threading, queue, subprocess
 
 import rclpy
 from rclpy.node import Node
@@ -39,33 +39,81 @@ def main(stdscr):
         robot_thread = threading.Thread(target=spin_thread, args=(running, lambda: NavClient(cmd_queue, pos_queue, f"/{robot_name}")))
         robot_thread.start()
         message = ""
+        current_input = ""
+
+        debug = ''
+
+        next_step = None
+        goal = None
+        pos = None
+
+        stdscr.nodelay(True)
 
         while running.is_set():
             stdscr.clear()
 
-            stdscr.addstr(0, 0, 'Enter location name to see coordinate; "pos" for robot position; "go [name]" to go to a location; "reset" to reset position; "quit" to exit.')
+            stdscr.addstr(0, 0, '"see [name]" to see coordinate; "go [name]" to go to a location; "reset" to reset position; "quit" to exit.')
+            stdscr.addstr(1, 0, f"> {current_input}")
             stdscr.addstr(2, 0, message)
+            stdscr.addstr(3, 0, str(pos))
+            stdscr.addstr(4, 0, debug)
         
             map_str = map_data.square_name_str()
-            row = 4
+            row = 5
             for i, line in enumerate(map_str.split('\n')):
                 stdscr.addstr(row + i, 0, line)
+
+            try:
+                k = stdscr.getkey()
+                debug = str(ord(k))
+                curses.flushinp()
+                if k == '\n':
+                    if current_input == 'quit':
+                        running.clear()
+                    elif current_input == 'hi':
+                        message = 'hello'
+                    elif current_input.startswith('go'):
+                        parts = current_input.split()
+                        if len(parts) >= 2:
+                            if parts[1] in map_graph:
+                                goal = parts[1]
+                                # TODO: Figure out where I am!
+                                #next_step = map_graph.next_step_from_to(
+                            else:
+                                message = f'unknown location: {parts[1]}'
+                        else:
+                            message = 'go where?'
+                    elif current_input.startswith('see'):
+                        parts = current_input.split()
+                        if len(parts) >= 2:
+                            if parts[1] in map_graph:
+                                message = f"{map_graph.node_value(parts[1])}"
+                            else:
+                                message = "Unrecognized"
+                        else:
+                            message = 'see what?'
+                    elif current_input == 'reset':
+                        result = reset_pos(robot_name)
+                        message = "complete" if result == 0 else "reset failed"
+                    elif current_input == 'bye':
+                        message = 'Type "quit" to exit'
+                    else:
+                        message = f"Unrecognized command: {current_input}"
+                    
+                    current_input = ''
+
+                elif k == '\b':
+                    current_input = current_input[:-1]
+                else:
+                    message = ''
+                    current_input += k
+            except curses.error as e:
+                if str(e) != 'no input':
+                    debug = traceback.format_exc()
+
+            p = drain_queue(pos_queue)
+            if p: pos = f"({p.position.x:.1f}, {p.position.y:.1f})"
         
-            choice = my_raw_input(stdscr, 1, 0, "> ")
-
-            if choice == 'quit':
-                running.clear()
-            elif choice == 'pos':
-                pos = drain_queue(pos_queue)
-                message = str(pos)
-            elif choice == 'reset':
-                result = reset_pos(robot_name)
-                message = "complete" if result == 0 else "reset failed"
-            elif map_graph.has_node(choice):
-                message = f"{map_graph.node_value(choice)}"
-            else:
-                message = "Unrecognized"
-
         robot_thread.join()
 
 
