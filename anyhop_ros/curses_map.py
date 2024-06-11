@@ -43,7 +43,7 @@ def main(stdscr):
         while running.is_set():
             stdscr.clear()
 
-            stdscr.addstr(0, 0, 'Enter location name to see coordinate; "go [name]" to go to a location; "reset" to reset position; "quit" to exit.')
+            stdscr.addstr(0, 0, 'Enter location name to see coordinate; "pos" for robot position; "go [name]" to go to a location; "reset" to reset position; "quit" to exit.')
             stdscr.addstr(2, 0, message)
         
             map_str = map_data.square_name_str()
@@ -55,6 +55,9 @@ def main(stdscr):
 
             if choice == 'quit':
                 running.clear()
+            elif choice == 'pos':
+                pos = drain_queue(pos_queue)
+                message = str(pos)
             elif choice == 'reset':
                 result = reset_pos(robot_name)
                 message = "complete" if result == 0 else "reset failed"
@@ -107,7 +110,7 @@ class NavClient(HdxNode):
         self.pos_queue.put(msg.pose.pose)
 
     def timer_callback(self):
-        self.pos_queue.put(self.elapsed_time())
+        #self.pos_queue.put(self.elapsed_time())
         msg = drain_queue(self.cmd_queue)
         if msg is not None:
             goal_msg = NavigateToPosition.Goal()
