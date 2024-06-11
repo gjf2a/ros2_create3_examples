@@ -1,8 +1,4 @@
 ## TODO:
-## * Set up a ROS connection
-##   * Display current location information from the robot
-## * Use the NavClient class to send a robot to a location
-##   * Only allow this if it is adjacent to the new location
 ## * Create a plan to send the robot to any location using the
 ##   map_graph object as a data source.
 ##   * Create a plan sequencer to carry out the plan.
@@ -34,9 +30,10 @@ def main(stdscr):
 
         cmd_queue = queue.Queue()
         pos_queue = queue.Queue()
+        act_queue = queue.Queue()
         running = threading.Event()
         running.set()
-        robot_thread = threading.Thread(target=spin_thread, args=(running, lambda: NavClient(cmd_queue, pos_queue, f"/{robot_name}")))
+        robot_thread = threading.Thread(target=spin_thread, args=(running, lambda: NavClient(cmd_queue, pos_queue, act_queue, f"/{robot_name}")))
         robot_thread.start()
         message = ""
         current_input = ""
@@ -46,6 +43,7 @@ def main(stdscr):
         next_step = None
         goal = None
         pos = None
+        action_msg = None
 
         stdscr.nodelay(True)
 
@@ -56,10 +54,11 @@ def main(stdscr):
             stdscr.addstr(1, 0, f"> {current_input}")
             stdscr.addstr(2, 0, message)
             stdscr.addstr(3, 0, str(pos))
-            stdscr.addstr(4, 0, debug)
+            stdscr.addstr(4, 0, str(action_msg))
+            stdscr.addstr(5, 0, debug)
         
             map_str = map_data.square_name_str()
-            row = 5
+            row = 6
             for i, line in enumerate(map_str.split('\n')):
                 stdscr.addstr(row + i, 0, line)
 
@@ -113,6 +112,9 @@ def main(stdscr):
 
             p = drain_queue(pos_queue)
             if p: pos = f"({p.position.x:.1f}, {p.position.y:.1f})"
+
+            a = drain_queue(act_queue)
+            if a: action_msg = a
         
         robot_thread.join()
 
@@ -144,13 +146,14 @@ def my_raw_input(stdscr, row, col, prompt_string):
 
 
 class NavClient(HdxNode):
-    def __init__(self, cmd_queue, pos_queue, namespace: str = ""):
+    def __init__(self, cmd_queue, pos_queue, act_queue, namespace: str = ""):
         super().__init__('navigator')
 
         self.subscription = self.create_subscription(Odometry, f"{namespace}/odom", self.listener_callback, qos_profile_sensor_data)
         self.create_timer(0.1, self.timer_callback)
         self.cmd_queue = cmd_queue
         self.pos_queue = pos_queue
+        self.act_queue = act_queue
 
         self.action_client = ActionClient(self, NavigateToPosition, f'{namespace}/navigate_to_position')
 
@@ -164,25 +167,24 @@ class NavClient(HdxNode):
             goal_msg = NavigateToPosition.Goal()
             goal_msg.achieve_goal_heading = True
             goal_msg.goal_pose = self.make_pose_from(msg)
-            # TODO: Send a notification via pos_queue, but in a way that it doesn't immediately get overwritten.
+            self.act_queue.put("action request sent")
             self.action_client.wait_for_server()
-            # TODO: Send a follow-up message that the server responded
+            self.act_queue.put("server response")
             future = self.action_client.send_goal_async(goal_msg)
             future.add_done_callback(self.goal_response_callback)
 
     def goal_response_callback(self, future):
         goal_handle = future.result()
         if goal_handle.accepted:
-            # TODO: Send a notification that the goal is accepted.
+            self.act_queue.put("goal accepted")
             self.get_result_future = goal_handle.get_result_async()
             self.get_result_future.add_done_callback(self.at_goal_callback)
         else:
-            pass
-            # TODO: Send a notification of a rejected goal
+            self.act_queue.put("goal rejected")
 
     def at_goal_callback(self, future):
-        pass
-        # TODO: Send a notification that the goal is reached.
+        self.act_queue.put("goal reached")
+
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
