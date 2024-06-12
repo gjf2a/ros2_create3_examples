@@ -95,7 +95,7 @@ def main(stdscr):
                             message = 'see what?'
                     elif current_input == 'reset':
                         result = reset_pos(robot_name)
-                        message = "complete" if result == 0 else "reset failed"
+                        message = "complete" if result.returncode == 0 else f"reset failed: {result}"
                     elif current_input == 'bye':
                         message = 'Type "quit" to exit'
                     else:
