@@ -80,6 +80,7 @@ def main(stdscr):
                                 goal = parts[1]
                                 next_step = map_graph.next_step_from_to(current_location, goal)
                                 cmd_queue.put(map_graph.node_value(next_step))
+                                message = f'sent request "{current_input}"'
                             else:
                                 message = f'unknown location: {parts[1]}'
                         else:
@@ -147,15 +148,6 @@ def reset_pos(bot):
     return subprocess.run(call, shell=True, capture_output=True)
 
 
-def my_raw_input(stdscr, row, col, prompt_string):
-    curses.echo()
-    stdscr.addstr(row, col, prompt_string)
-    stdscr.refresh()
-    text = stdscr.getstr(row, col + len(prompt_string) + 1, 20)
-    text = text.decode('utf-8')
-    return text
-
-
 class NavClient(HdxNode):
     def __init__(self, cmd_queue, pos_queue, act_queue, namespace: str = ""):
         super().__init__('navigator')
@@ -174,10 +166,11 @@ class NavClient(HdxNode):
     def timer_callback(self):
         msg = drain_queue(self.cmd_queue)
         if msg is not None:
+            self.act_queue.put(f'received request "{msg}"')
             goal_msg = NavigateToPosition.Goal()
             goal_msg.achieve_goal_heading = True
             goal_msg.goal_pose = self.make_pose_from(msg)
-            self.act_queue.put("action request sent")
+            self.act_queue.put("action request sent: {goal_msg.goal_pose}")
             self.action_client.wait_for_server()
             self.act_queue.put("server response")
             future = self.action_client.send_goal_async(goal_msg)

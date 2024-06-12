@@ -8,7 +8,8 @@ from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
-from runner import HdxNode, straight_twist, turn_twist
+from runner import HdxNode, straight_twist, turn_twist, quaternion2euler
+from typing import Tuple
 
 def spin_thread(finished, node_maker):
     rclpy.init(args=None)
@@ -41,6 +42,9 @@ class RemoteNode(HdxNode):
         self.stdscr = stdscr
         self.last_key = None
 
+        # Just testing a concept...
+        self.goals = [(10, 5), (-10, 5), (-10, -5), (10, -5)]
+
     def listener_callback(self, msg: Odometry):
         self.printOdometry(msg)
 
@@ -51,14 +55,18 @@ class RemoteNode(HdxNode):
             self.last_key = msg
             if self.last_key in COMMANDS:
                 self.publisher.publish(COMMANDS[msg])
-            self.stdscr.addstr(5, 0, f"{msg} ({self.last_key})")
+            self.stdscr.addstr(3, 0, f"{msg} ({self.last_key})")
         self.stdscr.refresh()
 
     def printOdometry(self, msg: Odometry):
         p = msg.pose.pose.position
         h = msg.pose.pose.orientation
-        self.stdscr.addstr(3, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})")
-        self.stdscr.addstr(4, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})")
+        self.stdscr.addstr(4, 0, f"Position:         ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})")
+        self.stdscr.addstr(5, 0, f"Orientation:      ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})")
+        euler = tuple(f"{math.degrees(n):5.2f}" for n in quaternion2euler(h))
+        self.stdscr.addstr(6, 0, f"Roll, Pitch, Yaw: ({euler})")
+        headings = [f"({x}, {y}): {math.degrees(math.atan2(y - p.y, x - p.x)):.1f}" for (x, y) in self.goals]
+        self.stdscr.addstr(7, 0, f"{headings}")
         self.stdscr.refresh()
 
 

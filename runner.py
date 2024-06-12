@@ -6,7 +6,7 @@ from rclpy.node import Node
 import cv2
 import math
 
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, Quaternion
 from irobot_create_msgs.msg import WheelStatus
 
 from nav_msgs.msg import Odometry
@@ -15,6 +15,9 @@ from rclpy.qos import qos_profile_sensor_data
 
 from rclpy.action import ActionClient
 from irobot_create_msgs.action import RotateAngle, DriveDistance
+
+from enum import Enum
+from typing import Tuple
 
 
 def drain_queue(q):
@@ -35,6 +38,33 @@ def turn_twist(vel):
     t = Twist()
     t.angular.z = vel
     return t
+
+
+def quaternion2euler(orientation: Quaternion) -> Tuple[float, float, float]:
+    """
+    Convert a quaternion to Euler angles (roll, pitch, yaw)
+    roll is rotation around x-axis in radians (counterclockwise)
+    pitch is rotation around y-axis in radians (counterclockwise)
+    yaw is rotation around z-axis in radians (counterclockwise)
+    """
+    # Concept: https://www.perplexity.ai/search/explain-the-orientation-jXV4N3xiQUeUGwMTLESZXg
+
+    w, x, y, z = orientation.x, orientation.y, orientation.z, orientation.w
+
+    t0 = 2.0 * (w * x + y * z)
+    t1 = 1.0 - 2.0 * (x * x + y * y)
+    roll = math.atan2(t0, t1)
+
+    t2 = 2.0 * (w * y - z * x)
+    t2 = 1.0 if t2 > 1.0 else t2
+    t2 = -1.0 if t2 < -1.0 else t2
+    pitch = math.asin(t2)
+
+    t3 = 2.0 * (w * z + x * y)
+    t4 = 1.0 - 2.0 * (y * y + z * z)
+    yaw = math.atan2(t3, t4)
+
+    return roll, pitch, yaw
 
 
 BUMP_HEADINGS = {
@@ -124,7 +154,7 @@ class RemoteNode(HdxNode):
     timer_callback() - sends timing and key information at time intervals.
     """
     def __init__(self, cmd_queue, pos_queue, namespace: str = ""):
-        super().__init__('odometry_subscriber')
+        super().__init__('remote_control_node')
 
         self.commands = {
             'w': straight_twist(0.5),
@@ -151,6 +181,55 @@ class RemoteNode(HdxNode):
             self.publisher.publish(self.commands[msg])
             # Send an echo so the sender knows the publish happened.
             self.pos_queue.put(msg) 
+
+
+class GoToPhase(Enum):
+    INACTIVE = 0
+    AIMING = 1
+    TRAVELING = 2
+
+
+class GoToNode(HdxNode):
+    """
+    ROS2 node that awaits (x, y) coordinates to which to navigate. The sender is
+    responsible for ensuring a clear path from the robot's current location to 
+    the specificed position. It sends position data back as it receives it.
+    It also maintains a condition variable, which is set when it is active,
+    and clear when it is inactive. It becomes active when it receives a 
+    command and inactive when it has reached its target destination.
+    """
+    def __init__(self, cmd_queue, pos_queue, is_active, namespace: str = ""):
+        super().__init__('go_to_node')
+        self.cmd_queue = cmd_queue
+        self.pos_queue = pos_queue
+        self.is_active = is_active
+
+        self.subscription = self.create_subscription(
+            Odometry, namespace + '/odom', self.listener_callback,
+            qos_profile_sensor_data)
+        self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
+        self.create_timer(0.1, self.timer_callback)
+
+        self.phase = GoToPhase.INACTIVE
+        self.last_pose = None
+        self.goal_orientation = None
+        self.goal_position = None
+
+    def listener_callback(self, msg: Odometry):
+        self.pos_queue.put(msg.pose.pose)
+        self.last_pose = msg.pose.pose
+        
+    def timer_callback(self):
+        msg = drain_queue(self.cmd_queue)
+        if msg is not None and self.last_pose is not None:
+            self.is_active.set()
+            self.goal_position = msg
+            x, y = msg
+            self.goal_orientation = math.atan2(y - self.last_pose.position.y, x - self.last_pose.position.x)
+            self.phase = GoToPhase.AIMING
+            # TODO: Check best turn direction.
+            #       Start turn.
+            #       When orientation falls within a certain tolerance of the goal, shift to TRAVELING 
 
 
 
