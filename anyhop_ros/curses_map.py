@@ -7,16 +7,17 @@
 
 import pickle, sys, curses
 import threading, queue, subprocess
+import traceback
 
 import rclpy
-from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from rclpy.action import ActionClient
 from irobot_create_msgs.action import NavigateToPosition
 
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Twist, Pose
-from runner import straight_twist, turn_twist, HdxNode, drain_queue
+from geometry_msgs.msg import Twist, PoseStamped, Pose, Point, Quaternion
+from std_msgs.msg import Header
+from runner import HdxNode, drain_queue
 
 
 def main(stdscr):
@@ -40,6 +41,7 @@ def main(stdscr):
 
         debug = ''
 
+        current_location = None
         next_step = None
         goal = None
         pos = None
@@ -53,7 +55,7 @@ def main(stdscr):
             stdscr.addstr(0, 0, '"see [name]" to see coordinate; "go [name]" to go to a location; "reset" to reset position; "quit" to exit.')
             stdscr.addstr(1, 0, f"> {current_input}")
             stdscr.addstr(2, 0, message)
-            stdscr.addstr(3, 0, str(pos))
+            stdscr.addstr(3, 0, f"{current_location}: {pos}")
             stdscr.addstr(4, 0, str(action_msg))
             stdscr.addstr(5, 0, debug)
         
@@ -76,8 +78,8 @@ def main(stdscr):
                         if len(parts) >= 2:
                             if parts[1] in map_graph:
                                 goal = parts[1]
-                                # TODO: Figure out where I am!
-                                #next_step = map_graph.next_step_from_to(
+                                next_step = map_graph.next_step_from_to(current_location, goal)
+                                cmd_queue.put(map_graph.node_value(next_step))
                             else:
                                 message = f'unknown location: {parts[1]}'
                         else:
@@ -111,10 +113,19 @@ def main(stdscr):
                     debug = traceback.format_exc()
 
             p = drain_queue(pos_queue)
-            if p: pos = f"({p.position.x:.1f}, {p.position.y:.1f})"
+            if p:
+                pos = f"({p.position.x:.1f}, {p.position.y:.1f})"
+                current_location, _ = map_graph.closest_node(p.position.x, p.position.y)
 
             a = drain_queue(act_queue)
-            if a: action_msg = a
+            if a:
+                action_msg = a
+                if a == "goal reached":
+                    if current_location == goal:
+                        message = f"At goal {goal}!"
+                    else:
+                        next_step = map_graph.next_step_from_to(current_location, goal)
+                        cmd_queue.put(map_graph.node_value(next_step))
         
         robot_thread.join()
 
@@ -161,7 +172,6 @@ class NavClient(HdxNode):
         self.pos_queue.put(msg.pose.pose)
 
     def timer_callback(self):
-        #self.pos_queue.put(self.elapsed_time())
         msg = drain_queue(self.cmd_queue)
         if msg is not None:
             goal_msg = NavigateToPosition.Goal()
@@ -184,6 +194,20 @@ class NavClient(HdxNode):
 
     def at_goal_callback(self, future):
         self.act_queue.put("goal reached")
+
+    def make_pose_from(self, location):
+        ps = PoseStamped()
+        ps.header = Header()
+        ps.header.stamp = self.get_clock().now().to_msg()
+        ps.header.frame_id = "test_id"
+        p = Pose()
+        p.position = Point()
+        p.position.x, p.position.y = location
+        p.position.z = 0.0
+        p.orientation = Quaternion()
+        p.orientation.x, p.orientation.y, p.orientation.z, p.orientation.w = (0.0, 0.0, 0.0, 1.0)
+        ps.pose = p
+        return ps
 
 
 if __name__ == '__main__':
