@@ -86,6 +86,10 @@ def normalize_angle(angle: float) -> float:
     return angle
 
 
+def euclidean_distance(s1: Iterable[float], s2: Iterable[float]) -> float:
+    return math.sqrt(sum(a**2 - b**2 for (a, b) in zip(s1, s2)))
+
+
 BUMP_HEADINGS = {
     'bump_left': -math.pi / 2,
     'bump_front_left': -math.pi / 4,
@@ -202,10 +206,8 @@ class RemoteNode(HdxNode):
             self.pos_queue.put(msg) 
 
 
-class GoToPhase(Enum):
-    INACTIVE = 0
-    AIMING = 1
-    TRAVELING = 2
+GO_TO_ANGLE_TOLERANCE = math.pi / 32
+GO_TO_DISTANCE_TOLERANCE = 0.1
 
 
 class GoToNode(HdxNode):
@@ -229,7 +231,6 @@ class GoToNode(HdxNode):
         self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
         self.create_timer(0.1, self.timer_callback)
 
-        self.phase = GoToPhase.INACTIVE
         self.last_pose = None
         self.goal_orientation = None
         self.goal_position = None
@@ -240,16 +241,25 @@ class GoToNode(HdxNode):
         
     def timer_callback(self):
         msg = drain_queue(self.cmd_queue)
-        if msg is not None and self.last_pose is not None:
+        if msg is None:
+            if self.is_active.is_set():
+                euler = quaternion2euler(self.last_pose.orientation)
+                angle_disparity = angle_diff(self.goal_orientation, euler[0])
+                distance = euclidean_distance(self.goal_position, (self.last_pose.position.x, self.last_pose.position.y))
+                if abs(angle_disparity) > GO_TO_ANGLE_TOLERANCE:
+                    sign = 1 if angle_disparity >= 0 else -1
+                    self.publisher.publish(turn_twist(sign * math.pi / 4))
+                elif distance > GO_TO_DISTANCE_TOLERANCE:
+                    self.publisher.publish(straight_twist(0.5))
+                else:
+                    self.publisher.publish(straight_twist(0.0))
+                    self.is_active.clear()
+            
+        elif self.last_pose is not None:
             self.is_active.set()
             self.goal_position = msg
             x, y = msg
             self.goal_orientation = math.atan2(y - self.last_pose.position.y, x - self.last_pose.position.x)
-            self.phase = GoToPhase.AIMING
-            # TODO: Check best turn direction.
-            #       Start turn.
-            #       When orientation falls within a certain tolerance of the goal, shift to TRAVELING 
-
 
 
 def run_single_node(node_maker):
