@@ -8,7 +8,7 @@ from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
-from runner import HdxNode, straight_twist, turn_twist, quaternion2euler
+from runner import HdxNode, straight_twist, turn_twist, quaternion2euler, angle_diff
 from typing import Tuple
 
 def spin_thread(finished, node_maker):
@@ -63,9 +63,11 @@ class RemoteNode(HdxNode):
         h = msg.pose.pose.orientation
         self.stdscr.addstr(4, 0, f"Position:         ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})")
         self.stdscr.addstr(5, 0, f"Orientation:      ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})")
-        euler = tuple(f"{math.degrees(n):5.2f}" for n in quaternion2euler(h))
+        euler_radians = quaternion2euler(h)
+        euler = tuple(f"{math.degrees(n):5.2f}" for n in euler_radians)
         self.stdscr.addstr(6, 0, f"Roll, Pitch, Yaw: ({euler})")
-        headings = [f"({x}, {y}): {math.degrees(math.atan2(y - p.y, x - p.x)):.1f}" for (x, y) in self.goals]
+        headings = [(x, y, math.atan2(y - p.y, x - p.x)) for (x, y) in self.goals]
+        headings = [f"({x}, {y}): {math.degrees(h):.2f} ({math.degrees(angle_diff(h, euler_radians[0])):.2f})" for (x, y, h) in headings]
         self.stdscr.addstr(7, 0, f"{headings}")
         self.stdscr.refresh()
 

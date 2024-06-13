@@ -67,6 +67,25 @@ def quaternion2euler(orientation: Quaternion) -> Tuple[float, float, float]:
     return roll, pitch, yaw
 
 
+def angle_diff(angle1: float, angle2: float) -> float:
+    """
+    Find the shortest difference between two angles.
+    Parameters should be in radians.
+    """
+    angle1 = normalize_angle(angle1)
+    angle2 = normalize_angle(angle2)
+    diff = angle1 - angle2
+    return diff if diff <= math.pi else diff - 2 * math.pi
+
+
+def normalize_angle(angle: float) -> float:
+    while angle > math.pi:
+        angle -= 2 * math.pi
+    while angle < -math.pi:
+        angle += 2 * math.pi
+    return angle
+
+
 BUMP_HEADINGS = {
     'bump_left': -math.pi / 2,
     'bump_front_left': -math.pi / 4,
