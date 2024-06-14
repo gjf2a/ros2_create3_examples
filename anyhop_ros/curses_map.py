@@ -17,7 +17,7 @@ from irobot_create_msgs.action import NavigateToPosition
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist, PoseStamped, Pose, Point, Quaternion
 from std_msgs.msg import Header
-from runner import HdxNode, drain_queue
+from runner import GoToNode, drain_queue
 
 
 def main(stdscr):
@@ -31,10 +31,10 @@ def main(stdscr):
 
         cmd_queue = queue.Queue()
         pos_queue = queue.Queue()
-        act_queue = queue.Queue()
+        go_to_active = threading.Event()
         running = threading.Event()
         running.set()
-        robot_thread = threading.Thread(target=spin_thread, args=(running, lambda: NavClient(cmd_queue, pos_queue, act_queue, f"/{robot_name}")))
+        robot_thread = threading.Thread(target=spin_thread, args=(running, lambda: GoToNode(cmd_queue, pos_queue, go_to_active, f"/{robot_name}")))
         robot_thread.start()
         message = ""
         current_input = ""
@@ -118,15 +118,12 @@ def main(stdscr):
                 pos = f"({p.position.x:.1f}, {p.position.y:.1f})"
                 current_location, _ = map_graph.closest_node(p.position.x, p.position.y)
 
-            a = drain_queue(act_queue)
-            if a:
-                action_msg = a
-                if a == "goal reached":
-                    if current_location == goal:
-                        message = f"At goal {goal}!"
-                    else:
-                        next_step = map_graph.next_step_from_to(current_location, goal)
-                        cmd_queue.put(map_graph.node_value(next_step))
+            if goal is not None and not go_to_active.is_set():
+                if current_location == goal:
+                    message = f"At goal {goal}!"
+                else:
+                    next_step = map_graph.next_step_from_to(current_location, goal)
+                    cmd_queue.put(map_graph.node_value(next_step))
         
         robot_thread.join()
 
@@ -146,61 +143,6 @@ def reset_pos(bot):
     call = f'ros2 service call /{bot}/reset_pose irobot_create_msgs/srv/ResetPose '
     call += '"{pose:{position:{x: 0.0, y: 0.0, z: 0.0}, orientation:{x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}"'
     return subprocess.run(call, shell=True, capture_output=True)
-
-
-class NavClient(HdxNode):
-    def __init__(self, cmd_queue, pos_queue, act_queue, namespace: str = ""):
-        super().__init__('navigator')
-
-        self.subscription = self.create_subscription(Odometry, f"{namespace}/odom", self.listener_callback, qos_profile_sensor_data)
-        self.create_timer(0.1, self.timer_callback)
-        self.cmd_queue = cmd_queue
-        self.pos_queue = pos_queue
-        self.act_queue = act_queue
-
-        self.action_client = ActionClient(self, NavigateToPosition, f'{namespace}/navigate_to_position')
-
-    def listener_callback(self, msg: Odometry):
-        self.pos_queue.put(msg.pose.pose)
-
-    def timer_callback(self):
-        msg = drain_queue(self.cmd_queue)
-        if msg is not None:
-            self.act_queue.put(f'received request "{msg}"')
-            goal_msg = NavigateToPosition.Goal()
-            goal_msg.achieve_goal_heading = True
-            goal_msg.goal_pose = self.make_pose_from(msg)
-            self.act_queue.put("action request sent: {goal_msg.goal_pose}")
-            self.action_client.wait_for_server()
-            self.act_queue.put("server response")
-            future = self.action_client.send_goal_async(goal_msg)
-            future.add_done_callback(self.goal_response_callback)
-
-    def goal_response_callback(self, future):
-        goal_handle = future.result()
-        if goal_handle.accepted:
-            self.act_queue.put("goal accepted")
-            self.get_result_future = goal_handle.get_result_async()
-            self.get_result_future.add_done_callback(self.at_goal_callback)
-        else:
-            self.act_queue.put("goal rejected")
-
-    def at_goal_callback(self, future):
-        self.act_queue.put("goal reached")
-
-    def make_pose_from(self, location):
-        ps = PoseStamped()
-        ps.header = Header()
-        ps.header.stamp = self.get_clock().now().to_msg()
-        ps.header.frame_id = "test_id"
-        p = Pose()
-        p.position = Point()
-        p.position.x, p.position.y = location
-        p.position.z = 0.0
-        p.orientation = Quaternion()
-        p.orientation.x, p.orientation.y, p.orientation.z, p.orientation.w = (0.0, 0.0, 0.0, 1.0)
-        ps.pose = p
-        return ps
 
 
 if __name__ == '__main__':

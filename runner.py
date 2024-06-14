@@ -17,7 +17,7 @@ from rclpy.action import ActionClient
 from irobot_create_msgs.action import RotateAngle, DriveDistance
 
 from enum import Enum
-from typing import Tuple
+from typing import Tuple, Iterable
 
 
 def drain_queue(q):
@@ -224,6 +224,7 @@ class GoToNode(HdxNode):
         self.cmd_queue = cmd_queue
         self.pos_queue = pos_queue
         self.is_active = is_active
+        self.is_active.clear()
 
         self.subscription = self.create_subscription(
             Odometry, namespace + '/odom', self.listener_callback,
