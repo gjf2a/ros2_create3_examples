@@ -219,10 +219,11 @@ class GoToNode(HdxNode):
     and clear when it is inactive. It becomes active when it receives a 
     command and inactive when it has reached its target destination.
     """
-    def __init__(self, cmd_queue, pos_queue, is_active, namespace: str = ""):
+    def __init__(self, cmd_queue, pos_queue, status_queue, is_active, namespace: str = ""):
         super().__init__('go_to_node')
         self.cmd_queue = cmd_queue
         self.pos_queue = pos_queue
+        self.status_queue = status_queue
         self.is_active = is_active
         self.is_active.clear()
 
@@ -250,17 +251,26 @@ class GoToNode(HdxNode):
                 if abs(angle_disparity) > GO_TO_ANGLE_TOLERANCE:
                     sign = 1 if angle_disparity >= 0 else -1
                     self.publisher.publish(turn_twist(sign * math.pi / 4))
+                    self.status_queue.push(f"Turning; sign is {sign}")
                 elif distance > GO_TO_DISTANCE_TOLERANCE:
                     self.publisher.publish(straight_twist(0.5))
+                    self.status_queue.push("Forward")
                 else:
                     self.publisher.publish(straight_twist(0.0))
                     self.is_active.clear()
+                    self.status_queue.push("Stopping")
+            else:
+                self.status_queue.push("Inactive")
             
         elif self.last_pose is not None:
             self.is_active.set()
             self.goal_position = msg
             x, y = msg
             self.goal_orientation = math.atan2(y - self.last_pose.position.y, x - self.last_pose.position.x)
+            self.status_queue.push(f"Received {msg}; goal orientation {self.goal_orientation}")
+
+        else:
+            self.status_queue.push("No previous position information")
 
 
 def run_single_node(node_maker):
