@@ -31,10 +31,11 @@ def main(stdscr):
 
         cmd_queue = queue.Queue()
         pos_queue = queue.Queue()
+        status_queue = queue.Queue()
         go_to_active = threading.Event()
         running = threading.Event()
         running.set()
-        robot_thread = threading.Thread(target=spin_thread, args=(running, lambda: GoToNode(cmd_queue, pos_queue, go_to_active, f"/{robot_name}")))
+        robot_thread = threading.Thread(target=spin_thread, args=(running, lambda: GoToNode(cmd_queue, pos_queue, status_queue, go_to_active, f"/{robot_name}")))
         robot_thread.start()
         message = ""
         current_input = ""
@@ -53,14 +54,14 @@ def main(stdscr):
             stdscr.clear()
 
             stdscr.addstr(0, 0, '"see [name]" to see coordinate; "go [name]" to go to a location; "reset" to reset position; "quit" to exit.')
-            stdscr.addstr(1, 0, f"> {current_input}")
-            stdscr.addstr(2, 0, message)
-            stdscr.addstr(3, 0, f"{current_location}: {pos}")
-            stdscr.addstr(4, 0, str(action_msg))
-            stdscr.addstr(5, 0, debug)
+            stdscr.addstr(2, 0, f"> {current_input}")
+            stdscr.addstr(3, 0, message)
+            stdscr.addstr(4, 0, f"{current_location}: {pos}")
+            stdscr.addstr(5, 0, str(action_msg))
+            stdscr.addstr(6, 0, debug)
         
             map_str = map_data.square_name_str()
-            row = 6
+            row = 7
             for i, line in enumerate(map_str.split('\n')):
                 stdscr.addstr(row + i, 0, line)
 
@@ -117,6 +118,8 @@ def main(stdscr):
             if p:
                 pos = f"({p.position.x:.1f}, {p.position.y:.1f})"
                 current_location, _ = map_graph.closest_node(p.position.x, p.position.y)
+
+            action_msg = drain_queue(status_queue)
 
             if goal is not None and not go_to_active.is_set():
                 if current_location == goal:
