@@ -1,10 +1,3 @@
-## TODO:
-## * Create a plan to send the robot to any location using the
-##   map_graph object as a data source.
-##   * Create a plan sequencer to carry out the plan.
-##   * The sequencer will display progress and allow 
-##     stopping the robot prematurely as well.
-
 import pickle, sys, curses
 import threading, queue, subprocess
 import traceback
