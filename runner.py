@@ -87,7 +87,7 @@ def normalize_angle(angle: float) -> float:
 
 
 def euclidean_distance(s1: Iterable[float], s2: Iterable[float]) -> float:
-    return math.sqrt(sum(a**2 - b**2 for (a, b) in zip(s1, s2)))
+    return math.sqrt(sum((a - b)**2 for (a, b) in zip(s1, s2)))
 
 
 BUMP_HEADINGS = {
@@ -118,11 +118,30 @@ class Timer:
 
 
 class HdxNode(Node):
-    def __init__(self, name):
-        super().__init__(name)
+    def __init__(self, node_name: str, namespace: str = ''):
+        super().__init__(node_name)
+        if len(namespace) > 0 and not namespace.startswith('/'):
+            namespace = f"/{namespace}"
+        self.namespace = namespace
         self.start = time.time()
         self.first_callback_time = None
         self.done = False
+        self.twist_publisher = self.create_publisher(Twist, f"{namespace}/cmd_vel", 10)
+
+    def subscribe_odom(self, callback):
+        self.create_subscription(Odometry, f'{self.namespace}/odom', callback, qos_profile_sensor_data)
+
+    def subscribe_ir(self, callback):
+        self.create_subscription(IrIntensityVector, f"{self.namespace}/ir_intensity", callback, qos_profile_sensor_data)
+
+    def subscribe_hazard(self, callback):
+        self.create_subscription(HazardDetectionVector, f"{self.namespace}/hazard_detection", callback, qos_profile_sensor_data)
+
+    def subscribe_wheel(self, callback):
+        self.create_subscription(WheelStatus, f'{self.namespace}/wheel_status', callback, qos_profile_sensor_data)
+
+    def send_twist(self, twist: Twist):
+        self.twist_publisher.publish(twist)
 
     def record_first_callback(self):
         if self.first_callback_time is None:
@@ -147,8 +166,8 @@ class HdxNode(Node):
 
 class WheelMonitorNode(HdxNode):
     def __init__(self, name, namespace):
-        super().__init__(name)
-        self.wheel_status = self.create_subscription(WheelStatus, f'{namespace}/wheel_status', self.wheel_status_callback, qos_profile_sensor_data)
+        super().__init__(name, namespace)
+        self.subscribe_wheel(self.wheel_status_callback)
         self.last_wheel_status = None
 
     def wheels_stopped(self):
@@ -177,7 +196,7 @@ class RemoteNode(HdxNode):
     timer_callback() - sends timing and key information at time intervals.
     """
     def __init__(self, cmd_queue, pos_queue, namespace: str = ""):
-        super().__init__('remote_control_node')
+        super().__init__('remote_control_node', namespace)
 
         self.commands = {
             'w': straight_twist(0.5),
@@ -186,10 +205,7 @@ class RemoteNode(HdxNode):
             'd': turn_twist(-math.pi/4)
         }
 
-        self.subscription = self.create_subscription(
-            Odometry, namespace + '/odom', self.listener_callback,
-            qos_profile_sensor_data)
-        self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
+        self.subscribe_odom(self.listener_callback)
         self.create_timer(0.1, self.timer_callback)
         self.cmd_queue = cmd_queue
         self.pos_queue = pos_queue
@@ -201,13 +217,70 @@ class RemoteNode(HdxNode):
         self.pos_queue.put(self.elapsed_time())
         msg = drain_queue(self.cmd_queue)
         if msg is not None and msg in self.commands:
-            self.publisher.publish(self.commands[msg])
+            self.send_twist(self.commands[msg])
             # Send an echo so the sender knows the publish happened.
             self.pos_queue.put(msg) 
 
 
 GO_TO_ANGLE_TOLERANCE = math.pi / 32
 GO_TO_DISTANCE_TOLERANCE = 0.1
+
+
+## TODO: Delete this - I am just trying to debug GoToNode...
+class BasicGoToNode(HdxNode):
+    """
+    ROS2 node that awaits (x, y) coordinates to which to navigate. The sender is
+    responsible for ensuring a clear path from the robot's current location to
+    the specificed position. It sends position data back as it receives it.
+    It also maintains a condition variable, which is set when it is active,
+    and clear when it is inactive. It becomes active when it receives a
+    command and inactive when it has reached its target destination.
+    """
+    def __init__(self, is_active, namespace: str = ""):
+        super().__init__('go_to_node')
+        self.is_active = is_active
+        self.is_active.clear()
+
+        self.subscription = self.create_subscription(
+            Odometry, namespace + '/odom', self.listener_callback,
+            qos_profile_sensor_data)
+        self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
+        self.create_timer(0.1, self.timer_callback)
+
+        self.last_pose = None
+        self.goal_orientation = None
+        self.goal_position = None
+
+    def listener_callback(self, msg: Odometry):
+        print(msg.pose.pose)
+        self.last_pose = msg.pose.pose
+
+    def go_to(self, msg):
+        self.is_active.set()
+        self.goal_position = msg
+        x, y = msg
+        self.goal_orientation = math.atan2(y - self.last_pose.position.y, x - self.last_pose.position.x)
+        print(f"Received {msg}; goal orientation {self.goal_orientation}")
+
+
+    def timer_callback(self):
+            if self.is_active.is_set():
+                euler = quaternion2euler(self.last_pose.orientation)
+                angle_disparity = angle_diff(self.goal_orientation, euler[0])
+                distance = euclidean_distance(self.goal_position, (self.last_pose.position.x, self.last_pose.position.y))
+                if abs(angle_disparity) > GO_TO_ANGLE_TOLERANCE:
+                    sign = 1 if angle_disparity >= 0 else -1
+                    self.publisher.publish(turn_twist(sign * math.pi / 4))
+                    print(f"Turning; sign is {sign}")
+                elif distance > GO_TO_DISTANCE_TOLERANCE:
+                    self.publisher.publish(straight_twist(0.5))
+                    print("Forward")
+                else:
+                    self.publisher.publish(straight_twist(0.0))
+                    self.is_active.clear()
+                    print("Stopping")
+            else:
+                print("Inactive")
 
 
 class GoToNode(HdxNode):

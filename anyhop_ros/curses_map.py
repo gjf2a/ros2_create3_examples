@@ -14,7 +14,7 @@ from runner import GoToNode, drain_queue
 
 
 def main(stdscr):
-    robot_name = sys.argv[2]
+    robot_name = f"/{sys.argv[2]}"
     with open(sys.argv[1], 'rb') as f:
         map_data = pickle.load(f)
         map_data.rotate = True
@@ -28,7 +28,7 @@ def main(stdscr):
         go_to_active = threading.Event()
         running = threading.Event()
         running.set()
-        robot_thread = threading.Thread(target=spin_thread, args=(running, lambda: GoToNode(cmd_queue, pos_queue, status_queue, go_to_active, f"/{robot_name}")))
+        robot_thread = threading.Thread(target=spin_thread, args=(running, lambda: GoToNode(cmd_queue, pos_queue, status_queue, go_to_active, robot_name)))
         robot_thread.start()
         message = ""
         current_input = ""
@@ -49,7 +49,7 @@ def main(stdscr):
             stdscr.addstr(0, 0, '"see [name]" to see coordinate; "go [name]" to go to a location; "reset" to reset position; "quit" to exit.')
             stdscr.addstr(2, 0, f"> {current_input}")
             stdscr.addstr(3, 0, message)
-            stdscr.addstr(4, 0, f"{current_location}: {pos}")
+            stdscr.addstr(4, 0, f"{robot_name}@{current_location}: {pos}")
             stdscr.addstr(5, 0, str(action_msg))
             stdscr.addstr(6, 0, debug)
         
