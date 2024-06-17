@@ -1,11 +1,12 @@
-from curses import wrapper
+import curses
 import threading
 import sys
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from nav_msgs.msg import Odometry
-from runner import HdxNode
+from runner import HdxNode, drain_queue
+import queue
 
 def spin_thread(finished, ros_ready, node_maker):
     rclpy.init(args=None)
@@ -22,47 +23,57 @@ def spin_thread(finished, ros_ready, node_maker):
 
 # Adapted from https://github.com/paccionesawyer/Create3_ROS2_Intro/blob/main/individual_examples/sub_battery.py
 class OdometrySubscriber(HdxNode):
-    def __init__(self, stdscr, namespace: str = ""):
+    def __init__(self, pos_queue: queue.Queue, namespace: str = ""):
         super().__init__('odometry_subscriber')
         self.subscription = self.create_subscription(
             Odometry, namespace + '/odom', self.listener_callback,
             qos_profile_sensor_data)
-        self.stdscr = stdscr
+        self.pos_queue = pos_queue
 
     def listener_callback(self, msg: Odometry):
-        self.printOdometry(msg)
+        self.pos_queue.put(msg)
 
-    def printOdometry(self, msg: Odometry):
-        p = msg.pose.pose.position
-        h = msg.pose.pose.orientation
-        self.stdscr.addstr(1, 0, f"Time:        {self.elapsed_time():7.2f} s")
-        self.stdscr.addstr(2, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})")
-        self.stdscr.addstr(3, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})")
-        self.stdscr.refresh()
+
+def printOdometry(stdscr, msg: Odometry):
+    p = msg.pose.pose.position
+    h = msg.pose.pose.orientation
+    stdscr.addstr(2, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})")
+    stdscr.addstr(3, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})")
 
 
 def main(stdscr):
+    stdscr.nodelay(True)
     stdscr.clear()
 
     finished = threading.Event()
     ros_ready = threading.Event()
+    pos_queue = queue.Queue()
     
-    st = threading.Thread(target=spin_thread, args=(finished, ros_ready, lambda: OdometrySubscriber(stdscr, "/archangel")))
+    st = threading.Thread(target=spin_thread, args=(finished, ros_ready, lambda: OdometrySubscriber(pos_queue, "/archangel")))
     st.start()
 
     stdscr.addstr(0, 0, 'Enter "q" to quit')
     stdscr.refresh()
     
     while True:
-        k = stdscr.getkey()
-        if k == 'q':
-            break
-        elif ros_ready.is_set():
+        try:
+            k = stdscr.getkey()
+            if k == 'q':
+                break
+        except curses.error as e:
+            if str(e) != 'no input':
+                stdscr.addstr(5, 0, traceback.format_exc())
+
+        if ros_ready.is_set():
             stdscr.addstr(4, 0, "ROS2 ready")
-            stdscr.refresh()
+
+        p = drain_queue(pos_queue)
+        if p:
+            printOdometry(stdscr, p)
+        stdscr.refresh()
     finished.set()
     st.join()
     
 
 if __name__ == '__main__':
-    wrapper(main)
+    curses.wrapper(main)
