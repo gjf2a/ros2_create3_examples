@@ -1,15 +1,12 @@
 import sys
-import math
 import runner
 import rclpy
-import time
 import random
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from irobot_create_msgs.msg import IrIntensityVector
-from irobot_create_msgs.msg import HazardDetectionVector
-from geometry_msgs.msg import Twist
 from runner import RotateActionClient
+
 
 class IRSubscriber(Node):
     def __init__(self,namespace):
@@ -28,10 +25,11 @@ class IRSubscriber(Node):
     def listener_callback(self,msg:IrIntensityVector):
         self.printIR(msg)
 
+
 class BumpTurnNode(runner.HdxNode):
     def __init__(self, namespace: str = ""):
-        super().__init__('bump_turn_node')
-        self.bumps = self.create_subscription(HazardDetectionVector, f"{namespace}/hazard_detection", self.bump_callback, qos_profile_sensor_data)
+        super().__init__('bump_turn_node', namespace)
+        self.subscribe_hazard(self.bump_callback)
         self.rotator = RotateActionClient(self.turn_finished_callback, namespace)
         self.turning = False
         self.bump = None
@@ -75,7 +73,6 @@ class BumpTurnNode(runner.HdxNode):
 class BumpTurnBot(runner.WheelMonitorNode):
     def __init__(self, namespace: str = ""):
         super().__init__('bump_turn_bot', namespace)
-        self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 1)
         self.IR_subscriber = IRSubscriber(namespace)
         rclpy.spin_once(self.IR_subscriber)
         self.bump_node = BumpTurnNode(namespace)
@@ -86,7 +83,7 @@ class BumpTurnBot(runner.WheelMonitorNode):
         self.record_first_callback()
         if self.bump_node.has_started() and not self.bump_node.is_turning():
             if self.bump_node.bump_clear():
-                self.publisher.publish(runner.straight_twist(0.5))
+                self.publish_twist(runner.straight_twist(0.5))
             elif self.wheels_stopped():
                 self.bump_node.start_turn()
 
@@ -96,6 +93,7 @@ class BumpTurnBot(runner.WheelMonitorNode):
     def add_self_recursive(self, executor):
         executor.add_node(self)
         self.bump_node.add_self_recursive(executor)
+
 
 if __name__ == '__main__':
     irFile = open("IRData.txt","w")

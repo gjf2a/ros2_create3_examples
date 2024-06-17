@@ -2,16 +2,14 @@ import sys
 import math
 import runner
 import rclpy
-from irobot_create_msgs.msg import HazardDetectionVector
-from rclpy.qos import qos_profile_sensor_data
 
 from runner import RotateActionClient, DriveDistanceClient
 
 
 class BumpTurnNode(runner.HdxNode):
     def __init__(self, namespace: str = "", avoid_angle=math.pi / 2, drive_dist=0.5):
-        super().__init__('bump_turn_node')
-        self.bumps = self.create_subscription(HazardDetectionVector, f"{namespace}/hazard_detection", self.bump_callback, qos_profile_sensor_data)
+        super().__init__('bump_turn_node', namespace)
+        self.subscribe_hazard(self.bump_callback)
         self.avoid_angle = avoid_angle
         self.drive_dist = drive_dist
         self.rotator = RotateActionClient(self.turn_finished_callback, namespace)

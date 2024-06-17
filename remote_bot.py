@@ -29,14 +29,11 @@ COMMANDS = {
     'd': turn_twist(-math.pi/4)
 }
 
-
+## TODO: Redo this to use runner.RemoteNode and the position queue.
 class RemoteNode(HdxNode):
     def __init__(self, stdscr, msg_queue, namespace: str = ""):
-        super().__init__('odometry_subscriber')
-        self.subscription = self.create_subscription(
-            Odometry, namespace + '/odom', self.listener_callback,
-            qos_profile_sensor_data)
-        self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
+        super().__init__('odometry_subscriber', namespace)
+        self.subscribe_odom(self.listener_callback)
         self.create_timer(0.1, self.timer_callback)
         self.msg_queue = msg_queue
         self.stdscr = stdscr

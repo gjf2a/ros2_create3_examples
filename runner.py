@@ -1,13 +1,13 @@
-import time, threading, math, queue
-import rclpy
+import subprocess, time, threading, math, queue
 import cv2
 
+import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist, Quaternion
-from irobot_create_msgs.msg import WheelStatus
-from nav_msgs.msg import Odometry
 from rclpy.qos import qos_profile_sensor_data
 from rclpy.action import ActionClient
+from geometry_msgs.msg import Twist, Quaternion
+from nav_msgs.msg import Odometry
+from irobot_create_msgs.msg import WheelStatus
 from irobot_create_msgs.action import RotateAngle, DriveDistance
 
 from typing import Tuple, Iterable
@@ -124,6 +124,11 @@ class HdxNode(Node):
     def subscribe_odom(self, callback):
         self.create_subscription(Odometry, f'{self.namespace}/odom', callback, qos_profile_sensor_data)
 
+    def reset_odom(self):
+        call = f'ros2 service call {self.namespace}/reset_pose irobot_create_msgs/srv/ResetPose '
+        call += '"{pose:{position:{x: 0.0, y: 0.0, z: 0.0}, orientation:{x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}"'
+        return subprocess.run(call, shell=True, capture_output=True)
+
     def subscribe_ir(self, callback):
         self.create_subscription(IrIntensityVector, f"{self.namespace}/ir_intensity", callback, qos_profile_sensor_data)
 
@@ -133,7 +138,7 @@ class HdxNode(Node):
     def subscribe_wheel(self, callback):
         self.create_subscription(WheelStatus, f'{self.namespace}/wheel_status', callback, qos_profile_sensor_data)
 
-    def send_twist(self, twist: Twist):
+    def publish_twist(self, twist: Twist):
         self.twist_publisher.publish(twist)
 
     def record_first_callback(self):
@@ -210,7 +215,7 @@ class RemoteNode(HdxNode):
         self.pos_queue.put(self.elapsed_time())
         msg = drain_queue(self.cmd_queue)
         if msg is not None and msg in self.commands:
-            self.send_twist(self.commands[msg])
+            self.publish_twist(self.commands[msg])
             # Send an echo so the sender knows the publish happened.
             self.pos_queue.put(msg) 
 
@@ -250,13 +255,13 @@ class GoToNode(HdxNode):
                 distance = euclidean_distance(self.goal_position, (p.x, p.y))
                 if abs(angle_disparity) > GO_TO_ANGLE_TOLERANCE:
                     sign = 1 if angle_disparity >= 0 else -1
-                    self.send_twist(turn_twist(sign * math.pi / 4))
+                    self.publish_twist(turn_twist(sign * math.pi / 4))
                     self.status_queue.put(f"Turning; sign is {sign}; disparity {angle_disparity}")
                 elif distance > GO_TO_DISTANCE_TOLERANCE:
-                    self.send_twist(straight_twist(0.5))
+                    self.publish_twist(straight_twist(0.5))
                     self.status_queue.put("Forward")
                 else:
-                    self.send_twist(straight_twist(0.0))
+                    self.publish_twist(straight_twist(0.0))
                     self.active.clear()
                     self.status_queue.put("Stopping")
             else:

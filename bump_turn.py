@@ -11,8 +11,8 @@ from runner import RotateActionClient
 
 class BumpTurnNode(runner.HdxNode):
     def __init__(self, namespace: str = "", avoid_angle=math.pi / 2):
-        super().__init__('bump_turn_node')
-        self.bumps = self.create_subscription(HazardDetectionVector, f"{namespace}/hazard_detection", self.bump_callback, qos_profile_sensor_data)
+        super().__init__('bump_turn_node', namespace)
+        self.subscribe_hazard(self.bump_callback)
         self.avoid_angle = avoid_angle
         self.rotator = RotateActionClient(self.turn_finished_callback, namespace)
         self.turning = False
@@ -57,7 +57,6 @@ class BumpTurnNode(runner.HdxNode):
 class BumpTurnBot(runner.WheelMonitorNode):
     def __init__(self, namespace: str = ""):
         super().__init__('bump_turn_bot', namespace)
-        self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
         self.bump_node = BumpTurnNode(namespace)
         self.create_timer(0.10, self.timer_callback)
 
@@ -65,7 +64,7 @@ class BumpTurnBot(runner.WheelMonitorNode):
         self.record_first_callback()
         if self.bump_node.has_started() and not self.bump_node.is_turning():
             if self.bump_node.bump_clear():
-                self.publisher.publish(runner.straight_twist(0.5))
+                self.publish_twist(runner.straight_twist(0.5))
             elif self.wheels_stopped():
                 self.bump_node.start_turn()
 
