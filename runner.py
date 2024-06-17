@@ -1,18 +1,12 @@
-import time
-import threading
-import sys
+import time, threading, sys, math, queue
 import rclpy
-from rclpy.node import Node
 import cv2
-import math
 
+from rclpy.node import Node
 from geometry_msgs.msg import Twist, Quaternion
 from irobot_create_msgs.msg import WheelStatus
-
 from nav_msgs.msg import Odometry
-
 from rclpy.qos import qos_profile_sensor_data
-
 from rclpy.action import ActionClient
 from irobot_create_msgs.action import RotateAngle, DriveDistance
 
@@ -225,64 +219,6 @@ class RemoteNode(HdxNode):
 GO_TO_ANGLE_TOLERANCE = math.pi / 32
 GO_TO_DISTANCE_TOLERANCE = 0.1
 
-
-## TODO: Delete this - I am just trying to debug GoToNode...
-class BasicGoToNode(HdxNode):
-    """
-    ROS2 node that awaits (x, y) coordinates to which to navigate. The sender is
-    responsible for ensuring a clear path from the robot's current location to
-    the specificed position. It sends position data back as it receives it.
-    It also maintains a condition variable, which is set when it is active,
-    and clear when it is inactive. It becomes active when it receives a
-    command and inactive when it has reached its target destination.
-    """
-    def __init__(self, is_active, namespace: str = ""):
-        super().__init__('go_to_node')
-        self.is_active = is_active
-        self.is_active.clear()
-
-        self.subscription = self.create_subscription(
-            Odometry, namespace + '/odom', self.listener_callback,
-            qos_profile_sensor_data)
-        self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
-        self.create_timer(0.1, self.timer_callback)
-
-        self.last_pose = None
-        self.goal_orientation = None
-        self.goal_position = None
-
-    def listener_callback(self, msg: Odometry):
-        print(msg.pose.pose)
-        self.last_pose = msg.pose.pose
-
-    def go_to(self, msg):
-        self.is_active.set()
-        self.goal_position = msg
-        x, y = msg
-        self.goal_orientation = math.atan2(y - self.last_pose.position.y, x - self.last_pose.position.x)
-        print(f"Received {msg}; goal orientation {self.goal_orientation}")
-
-
-    def timer_callback(self):
-            if self.is_active.is_set():
-                euler = quaternion2euler(self.last_pose.orientation)
-                angle_disparity = angle_diff(self.goal_orientation, euler[0])
-                distance = euclidean_distance(self.goal_position, (self.last_pose.position.x, self.last_pose.position.y))
-                if abs(angle_disparity) > GO_TO_ANGLE_TOLERANCE:
-                    sign = 1 if angle_disparity >= 0 else -1
-                    self.publisher.publish(turn_twist(sign * math.pi / 4))
-                    print(f"Turning; sign is {sign}")
-                elif distance > GO_TO_DISTANCE_TOLERANCE:
-                    self.publisher.publish(straight_twist(0.5))
-                    print("Forward")
-                else:
-                    self.publisher.publish(straight_twist(0.0))
-                    self.is_active.clear()
-                    print("Stopping")
-            else:
-                print("Inactive")
-
-
 class GoToNode(HdxNode):
     """
     ROS2 node that awaits (x, y) coordinates to which to navigate. The sender is
@@ -292,58 +228,47 @@ class GoToNode(HdxNode):
     and clear when it is inactive. It becomes active when it receives a 
     command and inactive when it has reached its target destination.
     """
-    def __init__(self, cmd_queue, pos_queue, status_queue, is_active, namespace: str = ""):
-        super().__init__('go_to_node')
-        self.cmd_queue = cmd_queue
+    def __init__(self, pos_queue: queue.Queue, cmd_queue: queue.Queue, status_queue: queue.Queue, active: threading.Event, namespace: str = ""):
+        super().__init__('go_to', namespace)
+        self.subscribe_odom(self.listener_callback)
         self.pos_queue = pos_queue
+        self.cmd_queue = cmd_queue
         self.status_queue = status_queue
-        self.is_active = is_active
-        self.is_active.clear()
-
-        self.subscription = self.create_subscription(
-            Odometry, namespace + '/odom', self.listener_callback,
-            qos_profile_sensor_data)
-        self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
-        self.create_timer(0.1, self.timer_callback)
-
-        self.last_pose = None
+        self.active = active
+        self.active.clear()
         self.goal_orientation = None
         self.goal_position = None
 
-    def listener_callback(self, msg: Odometry):
-        self.pos_queue.put(msg.pose.pose)
-        self.last_pose = msg.pose.pose
-        
-    def timer_callback(self):
+    def listener_callback(self, pos: Odometry):
+        self.pos_queue.put(pos)
+        p = pos.pose.pose.position
+        h = pos.pose.pose.orientation
         msg = drain_queue(self.cmd_queue)
         if msg is None:
-            if self.is_active.is_set():
-                euler = quaternion2euler(self.last_pose.orientation)
+            if self.active.is_set():
+                euler = quaternion2euler(h)
                 angle_disparity = angle_diff(self.goal_orientation, euler[0])
-                distance = euclidean_distance(self.goal_position, (self.last_pose.position.x, self.last_pose.position.y))
+                distance = euclidean_distance(self.goal_position, (p.x, p.y))
                 if abs(angle_disparity) > GO_TO_ANGLE_TOLERANCE:
                     sign = 1 if angle_disparity >= 0 else -1
-                    self.publisher.publish(turn_twist(sign * math.pi / 4))
-                    self.status_queue.push(f"Turning; sign is {sign}")
+                    self.send_twist(turn_twist(sign * math.pi / 4))
+                    self.status_queue.put(f"Turning; sign is {sign}; disparity {angle_disparity}")
                 elif distance > GO_TO_DISTANCE_TOLERANCE:
-                    self.publisher.publish(straight_twist(0.5))
-                    self.status_queue.push("Forward")
+                    self.send_twist(straight_twist(0.5))
+                    self.status_queue.put("Forward")
                 else:
-                    self.publisher.publish(straight_twist(0.0))
-                    self.is_active.clear()
-                    self.status_queue.push("Stopping")
+                    self.send_twist(straight_twist(0.0))
+                    self.active.clear()
+                    self.status_queue.put("Stopping")
             else:
-                self.status_queue.push("Inactive")
-            
-        elif self.last_pose is not None:
-            self.is_active.set()
-            self.goal_position = msg
-            x, y = msg
-            self.goal_orientation = math.atan2(y - self.last_pose.position.y, x - self.last_pose.position.x)
-            self.status_queue.push(f"Received {msg}; goal orientation {self.goal_orientation}")
+                self.status_queue.put("Inactive")
 
         else:
-            self.status_queue.push("No previous position information")
+            self.active.set()
+            self.goal_position = msg
+            x, y = msg
+            self.goal_orientation = math.atan2(y - p.y, x - p.x)
+            self.status_queue.put(f"Received {msg}; goal orientation {self.goal_orientation}")
 
 
 def run_single_node(node_maker):
