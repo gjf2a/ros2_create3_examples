@@ -1,12 +1,7 @@
-import curses
-import threading
-import sys
+import curses, threading, sys, queue
 import rclpy
-from rclpy.node import Node
-from rclpy.qos import qos_profile_sensor_data
 from nav_msgs.msg import Odometry
 from runner import HdxNode, drain_queue
-import queue
 
 def spin_thread(finished, ros_ready, node_maker):
     rclpy.init(args=None)
@@ -21,13 +16,10 @@ def spin_thread(finished, ros_ready, node_maker):
     rclpy.shutdown()
 
 
-# Adapted from https://github.com/paccionesawyer/Create3_ROS2_Intro/blob/main/individual_examples/sub_battery.py
 class OdometrySubscriber(HdxNode):
     def __init__(self, pos_queue: queue.Queue, namespace: str = ""):
-        super().__init__('odometry_subscriber')
-        self.subscription = self.create_subscription(
-            Odometry, namespace + '/odom', self.listener_callback,
-            qos_profile_sensor_data)
+        super().__init__('odometry_subscriber', namespace)
+        self.subscribe_odom(self.listener_callback)
         self.pos_queue = pos_queue
 
     def listener_callback(self, msg: Odometry):
@@ -42,6 +34,7 @@ def printOdometry(stdscr, msg: Odometry):
 
 
 def main(stdscr):
+    robot = sys.argv[1]
     stdscr.nodelay(True)
     stdscr.clear()
 
@@ -49,7 +42,7 @@ def main(stdscr):
     ros_ready = threading.Event()
     pos_queue = queue.Queue()
     
-    st = threading.Thread(target=spin_thread, args=(finished, ros_ready, lambda: OdometrySubscriber(pos_queue, "/archangel")))
+    st = threading.Thread(target=spin_thread, args=(finished, ros_ready, lambda: OdometrySubscriber(pos_queue, robot)))
     st.start()
 
     stdscr.addstr(0, 0, 'Enter "q" to quit')
@@ -76,4 +69,7 @@ def main(stdscr):
     
 
 if __name__ == '__main__':
-    curses.wrapper(main)
+    if len(sys.argv) < 2:
+        print("Usage: python3 odom_viewer.py robot")
+    else:
+        curses.wrapper(main)

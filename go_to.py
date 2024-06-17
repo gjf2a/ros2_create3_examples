@@ -1,7 +1,5 @@
-import curses, threading, sys, math, queue
+import curses, threading, queue, sys
 import rclpy
-from rclpy.node import Node
-from rclpy.qos import qos_profile_sensor_data
 from nav_msgs.msg import Odometry
 from runner import GoToNode, drain_queue
 
@@ -26,6 +24,7 @@ def printOdometry(stdscr, msg: Odometry):
 
 
 def main(stdscr):
+    robot = sys.argv[1]
     stdscr.nodelay(True)
     stdscr.clear()
 
@@ -37,7 +36,7 @@ def main(stdscr):
     status_queue = queue.Queue()
     current_input = ''
     
-    st = threading.Thread(target=spin_thread, args=(finished, ros_ready, lambda: GoToNode(pos_queue, cmd_queue, status_queue, active, "/archangel")))
+    st = threading.Thread(target=spin_thread, args=(finished, ros_ready, lambda: GoToNode(pos_queue, cmd_queue, status_queue, active, robot)))
     st.start()
 
     stdscr.addstr(0, 0, '"quit" to quit, "go x y" to drive somewhere')
@@ -80,4 +79,7 @@ def main(stdscr):
     
 
 if __name__ == '__main__':
-    curses.wrapper(main)
+    if len(sys.argv) < 2:
+        print("Usage: python3 go_to.py robot")
+    else:
+        curses.wrapper(main)

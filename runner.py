@@ -1,4 +1,4 @@
-import time, threading, sys, math, queue
+import time, threading, math, queue
 import rclpy
 import cv2
 
@@ -10,7 +10,6 @@ from rclpy.qos import qos_profile_sensor_data
 from rclpy.action import ActionClient
 from irobot_create_msgs.action import RotateAngle, DriveDistance
 
-from enum import Enum
 from typing import Tuple, Iterable
 
 
