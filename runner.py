@@ -7,7 +7,7 @@ from rclpy.qos import qos_profile_sensor_data
 from rclpy.action import ActionClient
 from geometry_msgs.msg import Twist, Quaternion
 from nav_msgs.msg import Odometry
-from irobot_create_msgs.msg import WheelStatus
+from irobot_create_msgs.msg import WheelStatus, IrIntensityVector, HazardDetectionVector
 from irobot_create_msgs.action import RotateAngle, DriveDistance
 
 from typing import Tuple, Iterable
@@ -18,7 +18,6 @@ def drain_queue(q):
     while not q.empty():
         result = q.get()
     return result
-
 
 
 def straight_twist(vel):
@@ -133,7 +132,8 @@ class HdxNode(Node):
         self.create_subscription(IrIntensityVector, f"{self.namespace}/ir_intensity", callback, qos_profile_sensor_data)
 
     def subscribe_hazard(self, callback):
-        self.create_subscription(HazardDetectionVector, f"{self.namespace}/hazard_detection", callback, qos_profile_sensor_data)
+        self.create_subscription(HazardDetectionVector, f"{self.namespace}/hazard_detection", callback,
+                                 qos_profile_sensor_data)
 
     def subscribe_wheel(self, callback):
         self.create_subscription(WheelStatus, f'{self.namespace}/wheel_status', callback, qos_profile_sensor_data)
@@ -223,6 +223,7 @@ class RemoteNode(HdxNode):
 GO_TO_ANGLE_TOLERANCE = math.pi / 32
 GO_TO_DISTANCE_TOLERANCE = 0.1
 
+
 class GoToNode(HdxNode):
     """
     ROS2 node that awaits (x, y) coordinates to which to navigate. The sender is
@@ -232,7 +233,8 @@ class GoToNode(HdxNode):
     and clear when it is inactive. It becomes active when it receives a 
     command and inactive when it has reached its target destination.
     """
-    def __init__(self, pos_queue: queue.Queue, cmd_queue: queue.Queue, status_queue: queue.Queue, active: threading.Event, namespace: str = ""):
+    def __init__(self, pos_queue: queue.Queue, cmd_queue: queue.Queue, status_queue: queue.Queue,
+                 active: threading.Event, namespace: str = ""):
         super().__init__('go_to', namespace)
         self.subscribe_odom(self.listener_callback)
         self.pos_queue = pos_queue
