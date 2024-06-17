@@ -136,7 +136,7 @@ def spin_thread(running, node_maker):
 
 
 def reset_pos(bot):
-    call = f'ros2 service call /{bot}/reset_pose irobot_create_msgs/srv/ResetPose '
+    call = f'ros2 service call {bot}/reset_pose irobot_create_msgs/srv/ResetPose '
     call += '"{pose:{position:{x: 0.0, y: 0.0, z: 0.0}, orientation:{x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}"'
     return subprocess.run(call, shell=True, capture_output=True)
 
