@@ -1,5 +1,6 @@
 import subprocess, time, threading, math, queue
 import cv2
+from typing import Tuple, Iterable
 
 import rclpy
 from rclpy.node import Node
@@ -9,8 +10,6 @@ from geometry_msgs.msg import Twist, Quaternion
 from nav_msgs.msg import Odometry
 from irobot_create_msgs.msg import WheelStatus, IrIntensityVector, HazardDetectionVector
 from irobot_create_msgs.action import RotateAngle, DriveDistance
-
-from typing import Tuple, Iterable
 
 
 def drain_queue(q):
@@ -66,7 +65,7 @@ def angle_diff(angle1: float, angle2: float) -> float:
     """
     angle1 = normalize_angle(angle1)
     angle2 = normalize_angle(angle2)
-    diff = angle1 - angle2
+    diff = normalize_angle(angle1 - angle2)
     return diff if diff <= math.pi else diff - 2 * math.pi
 
 
@@ -242,39 +241,43 @@ class GoToNode(HdxNode):
         self.status_queue = status_queue
         self.active = active
         self.active.clear()
-        self.goal_orientation = None
         self.goal_position = None
 
     def listener_callback(self, pos: Odometry):
         self.pos_queue.put(pos)
         p = pos.pose.pose.position
         h = pos.pose.pose.orientation
-        msg = drain_queue(self.cmd_queue)
-        if msg is None:
-            if self.active.is_set():
-                euler = quaternion2euler(h)
-                angle_disparity = angle_diff(self.goal_orientation, euler[0])
-                distance = euclidean_distance(self.goal_position, (p.x, p.y))
-                if abs(angle_disparity) > GO_TO_ANGLE_TOLERANCE:
-                    sign = 1 if angle_disparity >= 0 else -1
-                    self.publish_twist(turn_twist(sign * math.pi / 4))
-                    self.status_queue.put(f"Turning; sign is {sign}; disparity {angle_disparity}")
-                elif distance > GO_TO_DISTANCE_TOLERANCE:
-                    self.publish_twist(straight_twist(0.5))
-                    self.status_queue.put("Forward")
-                else:
-                    self.publish_twist(straight_twist(0.0))
-                    self.active.clear()
-                    self.status_queue.put("Stopping")
+        if self.active.is_set():
+            euler = quaternion2euler(h)
+            x, y = self.goal_position
+            angle_disparity = angle_diff(math.atan2(y - p.y, x - p.x), euler[0])
+            distance = euclidean_distance(self.goal_position, (p.x, p.y))
+            if abs(angle_disparity) > GO_TO_ANGLE_TOLERANCE:
+                sign = 1 if angle_disparity >= 0 else -1
+                self.publish_twist(turn_twist(sign * math.pi / 4))
+                self.status_queue.put(f"Turning toward {self.goal_position}; sign is {sign}; disparity {angle_disparity:.2f}")
+            elif distance > GO_TO_DISTANCE_TOLERANCE:
+                self.publish_twist(straight_twist(0.5))
+                self.status_queue.put(f"Forward to {self.goal_position}")
             else:
-                self.status_queue.put("Inactive")
-
+                self.active.clear()
+                self.status_queue.put("Stopping")
+        elif self.cmd_queue.empty():
+            self.publish_twist(straight_twist(0.0))
+            self.status_queue.put("Stopped")
         else:
-            self.active.set()
-            self.goal_position = msg
-            x, y = msg
-            self.goal_orientation = math.atan2(y - p.y, x - p.x)
-            self.status_queue.put(f"Received {msg}; goal orientation {self.goal_orientation}")
+            msg = self.cmd_queue.get()
+            if type(msg) == tuple:
+                self.goal_position = msg
+                self.active.set()
+                self.status_queue.put(f"Received {self.goal_position}")
+            elif msg == 'reset':
+                self.publish_twist(straight_twist(0.0))
+                self.status_queue.put("Resetting odometry...")
+                self.reset_odom()
+                self.status_queue.put("Reset complete")
+            else:
+                self.status_queue.put(f"Unrecognized command: {msg}")
 
 
 def run_single_node(node_maker):

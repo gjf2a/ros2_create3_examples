@@ -1,4 +1,4 @@
-import curses, threading, queue, sys
+import pickle, curses, threading, queue, sys
 import rclpy
 from nav_msgs.msg import Odometry
 from runner import GoToNode, drain_queue
@@ -24,9 +24,16 @@ def printOdometry(stdscr, msg: Odometry):
 
 
 def main(stdscr):
-    robot = sys.argv[1]
+    with open(sys.argv[2], 'rb') as f:
+        map_data = pickle.load(f)
+        run_robot_map(stdscr, sys.argv[1], map_data)
+
+
+def run_robot_map(stdscr, robot, map_data):
+    map_graph = map_data.square_graph()
     stdscr.nodelay(True)
     stdscr.clear()
+    curses.curs_set(0)
 
     finished = threading.Event()
     ros_ready = threading.Event()
@@ -39,7 +46,15 @@ def main(stdscr):
     st = threading.Thread(target=spin_thread, args=(finished, ros_ready, lambda: GoToNode(pos_queue, cmd_queue, status_queue, active, robot)))
     st.start()
 
-    stdscr.addstr(0, 0, '"quit" to quit, "stop" to stop, "go x1 y1 [x2 y2...]" to drive somewhere')
+    current_location = None
+    next_step = None
+    goal = None
+    pos = None
+
+    stdscr.addstr(0, 0, '"quit" to quit, "stop" to stop, "go [name]" to go to a location; "reset" to reset odometry; "see [name]" to see coordinate')
+    map_str = map_data.square_name_str()
+    for i, line in enumerate(map_str.split('\n')):
+        stdscr.addstr(8 + i, 0, line)
     stdscr.refresh()
     
     while True:
@@ -49,6 +64,12 @@ def main(stdscr):
             if k == '\n':
                 if current_input == 'quit':
                     break
+                elif current_input.startswith('see'):
+                    parts = current_input.split()
+                    if len(parts) >= 2:
+                        stdscr.addstr(5, 0, f"{map_graph.node_value(parts[1])}" if parts[1] in map_graph else 'Unrecognized')
+                    else:
+                        stdscr.addstr(5, 0, "see what?")
                 elif current_input == 'stop':
                     drain_queue(cmd_queue)
                     active.clear()
@@ -57,9 +78,17 @@ def main(stdscr):
                     active.clear()
                     cmd_queue.put('reset')
                 elif current_input.startswith("go"):
-                    coords = [float(n) for n in current_input.split()[1:]]
-                    for i in range(0, len(coords), 2):
-                        cmd_queue.put((coords[i], coords[i + 1]))
+                    parts = current_input.split()
+                    if len(parts) >= 2:
+                        if parts[1] in map_graph:
+                            goal = parts[1]
+                            next_step = map_graph.next_step_from_to(current_location, goal)
+                            cmd_queue.put(map_graph.node_value(next_step))
+                            stdscr.addstr(5, 0, f'sent request "{current_input}"                ')
+                        else:
+                            stdscr.addstr(5, 0, f'Unknown location: {parts[1]}')
+                    else:
+                        stdscr.addstr(5, 0, 'go where?')
                 else:
                     stdscr.addstr(5, 0, f'Unrecognized input: "{current_input}"')
                 current_input = ''
@@ -77,19 +106,26 @@ def main(stdscr):
         p = drain_queue(pos_queue)
         if p:
             printOdometry(stdscr, p)
+            current_location, _ = map_graph.closest_node(p.pose.pose.position.x, p.pose.pose.position.y)
 
         s = drain_queue(status_queue)
         if s:
             stdscr.addstr(6, 0, f"{s}                                                ")
-        stdscr.addstr(1, 0, f"{current_input}                         ")
+            if s == 'Stopping':
+                if current_location != goal:
+                    next_step = map_graph.next_step_from_to(current_location, goal)
+                    cmd_queue.put(map_graph.node_value(next_step))
+                    stdscr.addstr(5, 0, f'Sent next step: {next_step}')
+        stdscr.addstr(1, 0, f"> {current_input}                                 ")
         stdscr.addstr(7, 0, f"{'active  ' if active.is_set() else 'inactive'}")
+        stdscr.addstr(4, 0, f"@{current_location}; heading to {goal} via {next_step}        ")
         stdscr.refresh()
     finished.set()
     st.join()
     
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print("Usage: python3 go_to.py robot")
+    if len(sys.argv) < 3:
+        print("Usage: python3 plan_map_runner.py robot pickled_map_file")
     else:
         curses.wrapper(main)
