@@ -3,6 +3,7 @@ import rclpy
 from nav_msgs.msg import Odometry
 from runner import GoToNode, drain_queue
 
+
 def spin_thread(finished, ros_ready, node_maker):
     rclpy.init(args=None)
     executor = rclpy.get_global_executor()
@@ -16,7 +17,7 @@ def spin_thread(finished, ros_ready, node_maker):
     rclpy.shutdown()
 
 
-def printOdometry(stdscr, msg: Odometry):
+def print_odometry(stdscr, msg: Odometry):
     p = msg.pose.pose.position
     h = msg.pose.pose.orientation
     stdscr.addstr(2, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})")
@@ -105,7 +106,7 @@ def run_robot_map(stdscr, robot, map_data):
 
         p = drain_queue(pos_queue)
         if p:
-            printOdometry(stdscr, p)
+            print_odometry(stdscr, p)
             current_location, _ = map_graph.closest_node(p.pose.pose.position.x, p.pose.pose.position.y)
 
         s = drain_queue(status_queue)
