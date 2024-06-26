@@ -115,6 +115,8 @@ def run_robot_map(stdscr, filename, robot, map_data):
     status_queue = queue.Queue()
     manager = PlanManager(holding)
     current_input = ''
+
+    holding.clear()
     
     st = threading.Thread(target=spin_thread, args=(finished, ros_ready, lambda: GoToNode(pos_queue, cmd_queue, status_queue, active, robot)))
     st.start()
@@ -209,9 +211,11 @@ def run_robot_map(stdscr, filename, robot, map_data):
         if manager.plan_active():
             manager.check_step(state)
             stdscr.addstr(9, 0, str(state.package_locations))
-            stdscr.addstr(10, 0, "Plan running   ")
+            stdscr.addstr(10, 0, f"Plan running; step {manager.current_step}   ")
+            if state.at != manager.next_location():
+                cmd_queue.put(state.graph.node_value(manager.next_location()))
         else:
-            stdscr.addstr(10, 0, "No plan running")
+            stdscr.addstr(10, 0, "No plan running                                 ")
 
         if ros_ready.is_set():
             stdscr.addstr(5, 0, "ROS2 ready")
