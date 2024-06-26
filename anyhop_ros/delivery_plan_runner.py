@@ -1,4 +1,4 @@
-import pickle, curses, threading, queue, sys
+import pickle, curses, threading, queue, sys, copy
 import rclpy
 from nav_msgs.msg import Odometry
 from runner import GoToNode, drain_queue
@@ -23,8 +23,8 @@ def spin_thread(finished, ros_ready, node_maker):
 def print_odometry(stdscr, msg: Odometry):
     p = msg.pose.pose.position
     h = msg.pose.pose.orientation
-    stdscr.addstr(2, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})")
-    stdscr.addstr(3, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})")
+    stdscr.addstr(3, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})")
+    stdscr.addstr(4, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})")
 
 
 def main(stdscr):
@@ -60,10 +60,10 @@ class PlanManager:
         return self.state_after_action().at
 
     def picked_up(self):
-        return self.current_action[0] == 'pick_up' and self.holding.is_set()
+        return self.current_action()[0] == 'pick_up' and self.holding.is_set()
 
     def placed_down(self):
-        return self.current_action[0] == 'put_down' and not self.holding.is_set()
+        return self.current_action()[0] == 'put_down' and not self.holding.is_set()
 
     def check_step(self, state):
         if self.current_action()[0] == 'move_one_step' and state.at == self.next_location():
@@ -172,6 +172,7 @@ def run_robot_map(stdscr, filename, robot, map_data):
                             item_location = parts[i + 1]
                             if item_location in state.graph:
                                 state.package_locations[item_name] = item_location
+                                stdscr.addstr(9, 0, str(state.package_locations))
                             else:
                                 stdscr.addstr(6, 0, f'Unrecognized location: {item_location}')
                                 break
@@ -186,7 +187,6 @@ def run_robot_map(stdscr, filename, robot, map_data):
                             item_location = parts[i + 1]
                             if item_location in state.graph:
                                 state.package_goals[item_name] = item_location
-                                stdscr.addstr(9, 0, str(state.package_locations))
                             else:
                                 stdscr.addstr(6, 0, f'Unrecognized location: {item_location}')
                                 break
@@ -207,7 +207,7 @@ def run_robot_map(stdscr, filename, robot, map_data):
                 stdscr.addstr(6, 0, traceback.format_exc())
 
         if manager.plan_active():
-            manager.check_step(state.at)
+            manager.check_step(state)
             stdscr.addstr(9, 0, str(state.package_locations))
             stdscr.addstr(10, 0, "Plan running   ")
         else:
