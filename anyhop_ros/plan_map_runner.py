@@ -50,7 +50,6 @@ def run_robot_map(stdscr, robot, map_data):
     current_location = None
     next_step = None
     goal = None
-    pos = None
 
     stdscr.addstr(0, 0, '"quit" to quit, "stop" to stop, "go [name]" to go to a location; "reset" to reset odometry; "see [name]" to see coordinate')
     map_str = map_data.square_name_str()
