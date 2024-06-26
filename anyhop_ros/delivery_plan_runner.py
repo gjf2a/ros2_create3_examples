@@ -2,7 +2,8 @@ import pickle, curses, threading, queue, sys
 import rclpy
 from nav_msgs.msg import Odometry
 from runner import GoToNode, drain_queue
-from pyhop_anytime import State, make_graph_planner
+from pyhop_anytime import State
+from pyhop_anytime_examples.graph_package_world import make_graph_planner
 import RPi.GPIO as GPIO
 
 
@@ -40,17 +41,36 @@ class PlanManager:
         self.states = None
         self.current_step = None
 
-    def make_plan(self, state: State):
+    def make_delivery_plan(self, state: State):
         plan_times = self.planner.anyhop_random_tracked(state, [('deliver_all_packages_from', state.at)], 5)
         self.plan = plan_times[-1][0]
         self.states = self.planner.plan_states(state, self.plan)
         self.current_step = 0
 
-    def check_step(self, current_location):
-        # TODO: Think carefully about this.
-        # Update current_step based on current_location
-        # Check status of holding.is_set() and update status accordingly as well.
-        pass
+    def current_action(self):
+        return self.plan[self.current_step]
+
+    def state_before_action(self):
+        return self.states[self.current_step]
+
+    def state_after_action(self):
+        return self.states[self.current_step + 1]
+
+    def next_location(self):
+        return self.state_after_action().at
+
+    def picked_up(self):
+        return self.current_action[0] == 'pick_up' and self.holding.is_set()
+
+    def placed_down(self):
+        return self.current_action[0] == 'put_down' and not self.holding.is_set()
+
+    def check_step(self, state):
+        if self.current_action()[0] == 'move_one_step' and state.at == self.next_location():
+            self.current_step += 1
+        elif self.picked_up() or self.placed_down():
+            state.package_locations = copy.deepcopy(self.state_after_action().package_locations)
+            self.current_step += 1
 
     def plan_active(self):
         return self.current_step is not None and self.current_step < len(self.plan)
@@ -58,13 +78,9 @@ class PlanManager:
 
 def holding_thread(finished, holding):
     # Inspired by: https://www.perplexity.ai/search/write-python-code-pDoDr1FKQVuJSK.sr8dezw
-    # Set up GPIO using BCM numbering
+
     GPIO.setmode(GPIO.BCM)
-
-    # Define the GPIO pin connected to the VEX bump sensor
     BUMP_SENSOR_PIN = 17
-
-    # Set up the pin as an input with a pull-down resistor
     GPIO.setup(BUMP_SENSOR_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
     while not finished.is_set():
@@ -84,6 +100,8 @@ def run_robot_map(stdscr, filename, robot, map_data):
     state.capacity = 1
     state.holding = []
     state.package_locations = {}
+    state.package_goals = {}
+
     stdscr.nodelay(True)
     stdscr.clear()
     curses.curs_set(0)
@@ -168,11 +186,13 @@ def run_robot_map(stdscr, filename, robot, map_data):
                             item_location = parts[i + 1]
                             if item_location in state.graph:
                                 state.package_goals[item_name] = item_location
+                                stdscr.addstr(9, 0, str(state.package_locations))
                             else:
                                 stdscr.addstr(6, 0, f'Unrecognized location: {item_location}')
                                 break
-                        manager.make_plan(state)
-                        # TODO: Figure out manager equivalent of next_step somehow...
+                        manager.make_delivery_plan(state)
+                        if state.at != manager.next_location():
+                            cmd_queue.put(state.graph.node_value(manager.next_location()))
                     else:
                         stdscr.addstr(6, 0, 'deliver: wrong # arguments')
                 else:
@@ -186,6 +206,13 @@ def run_robot_map(stdscr, filename, robot, map_data):
             if str(e) != 'no input':
                 stdscr.addstr(6, 0, traceback.format_exc())
 
+        if manager.plan_active():
+            manager.check_step(state.at)
+            stdscr.addstr(9, 0, str(state.package_locations))
+            stdscr.addstr(10, 0, "Plan running   ")
+        else:
+            stdscr.addstr(10, 0, "No plan running")
+
         if ros_ready.is_set():
             stdscr.addstr(5, 0, "ROS2 ready")
 
@@ -198,8 +225,10 @@ def run_robot_map(stdscr, filename, robot, map_data):
         if s:
             stdscr.addstr(7, 0, f"{s}                                                ")
             if s == 'Stopping':
-                if state.at != goal:
-                    # TODO: Manager!
+                if manager.plan_active():
+                    if state.at != manager.next_location():
+                        cmd_queue.put(state.graph.node_value(manager.next_location()))
+                elif state.at != goal:
                     next_step = state.graph.next_step_from_to(state.at, goal)
                     cmd_queue.put(state.graph.node_value(next_step))
                     stdscr.addstr(5, 0, f'Sent next step: {next_step}')
@@ -214,6 +243,6 @@ def run_robot_map(stdscr, filename, robot, map_data):
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
-        print("Usage: python3 plan_map_runner.py robot pickled_map_file")
+        print("Usage: python3 delivery_plan_runner.py robot pickled_map_file")
     else:
         curses.wrapper(main)
