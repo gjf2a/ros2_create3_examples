@@ -71,6 +71,8 @@ class PlanManager:
         elif self.picked_up() or self.placed_down():
             state.package_locations = copy.deepcopy(self.state_after_action().package_locations)
             self.current_step += 1
+        if self.current_step >= len(self.plan):
+            self.current_step = None
 
     def plan_active(self):
         return self.current_step is not None and self.current_step < len(self.plan)
@@ -209,13 +211,13 @@ def run_robot_map(stdscr, filename, robot, map_data):
                 stdscr.addstr(6, 0, traceback.format_exc())
 
         if manager.plan_active():
-            manager.check_step(state)
             stdscr.addstr(9, 0, str(state.package_locations))
-            stdscr.addstr(10, 0, f"Plan running; step {manager.current_step}   ")
-            if state.at != manager.next_location():
+            stdscr.addstr(10, 0, f"Plan running; step {manager.current_step}  {manager.current_action()} ")
+            manager.check_step(state)
+            if manager.plan_active() and state.at != manager.next_location():
                 cmd_queue.put(state.graph.node_value(manager.next_location()))
         else:
-            stdscr.addstr(10, 0, "No plan running                                 ")
+            stdscr.addstr(10, 0, "No plan running                                                                        ")
 
         if ros_ready.is_set():
             stdscr.addstr(5, 0, "ROS2 ready")
