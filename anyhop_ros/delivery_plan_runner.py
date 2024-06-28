@@ -43,7 +43,13 @@ class PlanManager:
         self.current_step = None
 
     def make_delivery_plan(self, state: State):
-        plan_times = self.planner.anyhop_random_tracked(state, [('deliver_all_packages_from', state.at)], 5)
+        plan_times = self.planner.anyhop_random_tracked(state, [('deliver_all_packages_from', state.at)], 3)
+        self.plan = plan_times[-1][0]
+        self.states = self.planner.plan_states(state, self.plan)
+        self.current_step = 0
+
+    def make_travel_plan(self, state: State, goal: str):
+        plan_times = self.planner.anyhop_random_tracked(state, [('go_to', goal)], 3)
         self.plan = plan_times[-1][0]
         self.states = self.planner.plan_states(state, self.plan)
         self.current_step = 0
@@ -224,9 +230,14 @@ class RobotMapRunner:
                 if self.running_plan() or self.running_go():
                     self.stop()
                 goal = parts[1]
-                next_step = self.state.graph.next_step_from_to(self.state.at, goal)
-                self.cmd_queue.put(self.state.graph.node_value(next_step))
-                self.stdscr.addstr(6, 0, f'sent request "{self.current_input}"                ')
+                # Original version
+                #next_step = self.state.graph.next_step_from_to(self.state.at, goal)
+                #self.cmd_queue.put(self.state.graph.node_value(next_step))
+                #self.stdscr.addstr(6, 0, f'sent request "{self.current_input}"                ')
+
+                # New version
+                self.manager.make_travel_plan(self.state, goal)
+                self.next_plan_step('go_to')
             else:
                 self.stdscr.addstr(6, 0, f'Unknown location: {parts[1]}')
         else:
