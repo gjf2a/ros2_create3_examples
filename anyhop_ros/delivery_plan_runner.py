@@ -221,7 +221,7 @@ class RobotMapRunner:
         parts = self.current_input.split()
         if len(parts) >= 2:
             if parts[1] in self.state.graph:
-                if self.running_plan() or self.running_go():
+                if self.running_plan():
                     self.stop()
                 self.manager.make_travel_plan(self.state, parts[1])
                 self.next_plan_step('go_to')
@@ -257,7 +257,7 @@ class RobotMapRunner:
                 else:
                     self.stdscr.addstr(6, 0, f'Unrecognized location: {item_location}')
                     break
-            if self.running_plan() or self.running_go():
+            if self.running_plan():
                 self.stop()
             self.manager.make_delivery_plan(self.state)
             self.next_plan_step('deliver')
