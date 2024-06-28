@@ -73,10 +73,14 @@ class PlanManager:
             state.package_locations = copy.deepcopy(self.state_after_action().package_locations)
             self.current_step += 1
         if self.current_step >= len(self.plan):
-            self.current_step = None
+            self.stop_plan()
 
     def plan_active(self):
         return self.current_step is not None and self.current_step < len(self.plan)
+
+    def stop_plan(self):
+        self.current_step = None
+
 
 
 def holding_thread(finished, holding):
