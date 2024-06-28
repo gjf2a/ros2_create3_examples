@@ -179,11 +179,9 @@ class RobotMapRunner:
         elif self.current_input.startswith('see'):
             self.see()
         elif self.current_input == 'stop':
-            drain_queue(self.cmd_queue)
-            self.active.clear()
+            self.stop()
         elif self.current_input == 'reset':
-            drain_queue(self.cmd_queue)
-            self.active.clear()
+            self.stop()
             self.cmd_queue.put('reset')
         elif self.current_input.startswith("go"):
             self.go()
@@ -193,6 +191,11 @@ class RobotMapRunner:
             self.deliver()
         else:
             self.stdscr.addstr(6, 0, f'Unrecognized input: "{self.current_input}"')
+
+    def stop(self):
+        self.manager.stop_plan()
+        drain_queue(self.cmd_queue)
+        self.active.clear()
 
     def see(self):
         parts = self.current_input.split()
