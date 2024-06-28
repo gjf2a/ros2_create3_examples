@@ -142,6 +142,12 @@ class RobotMapRunner:
         self.next_step = None
         self.goal = None
 
+    def running_go(self):
+        return self.goal is not None
+
+    def running_plan(self):
+        return self.manager.plan_active()
+
     def run_loop(self):
         self.st.start()
         self.ht.start()
@@ -209,6 +215,8 @@ class RobotMapRunner:
         parts = self.current_input.split()
         if len(parts) >= 2:
             if parts[1] in self.state.graph:
+                if self.running_plan() or self.running_go():
+                    self.stop()
                 goal = parts[1]
                 next_step = self.state.graph.next_step_from_to(self.state.at, goal)
                 self.cmd_queue.put(self.state.graph.node_value(next_step))
@@ -245,20 +253,20 @@ class RobotMapRunner:
                 else:
                     self.stdscr.addstr(6, 0, f'Unrecognized location: {item_location}')
                     break
+            if self.running_plan() or self.running_go():
+                self.stop()
             self.manager.make_delivery_plan(self.state)
-            if self.state.at != self.manager.next_location():
-                self.cmd_queue.put(self.state.graph.node_value(self.manager.next_location()))
+            self.next_plan_step('deliver')
         else:
             self.stdscr.addstr(6, 0, 'deliver: wrong # arguments')
 
     def show_plan_status(self):
-        if self.manager.plan_active():
+        if self.running_plan():
             self.stdscr.addstr(9, 0, str(self.state.package_locations))
             self.stdscr.addstr(10, 0,
                                f"Plan running; step {self.manager.current_step}  {self.manager.current_action()} ")
             self.manager.check_step(self.state)
-            if self.manager.plan_active() and self.state.at != self.manager.next_location():
-                self.cmd_queue.put(self.state.graph.node_value(self.manager.next_location()))
+            self.next_plan_step('check')
         else:
             self.stdscr.addstr(10, 0, f"No plan running{' ' * 40}")
 
@@ -273,17 +281,24 @@ class RobotMapRunner:
         if s:
             self.stdscr.addstr(7, 0, f"{s}                                                ")
             if s == 'Stopping':
-                if self.manager.plan_active():
-                    if self.state.at != self.manager.next_location():
-                        self.cmd_queue.put(self.state.graph.node_value(self.manager.next_location()))
-                elif self.next_step is not None:
-                    if self.state.at != self.goal:
-                        next_step = self.state.graph.next_step_from_to(self.state.at, self.goal)
-                        self.cmd_queue.put(self.state.graph.node_value(next_step))
-                        self.stdscr.addstr(5, 0, f'Sent next step: {next_step}')
-                    else:
-                        self.goal = None
-                        self.next_step = None
+                if self.running_plan():
+                    self.next_plan_step('update')
+                elif self.running_go():
+                    self.next_go_step()
+
+    def next_plan_step(self, tag):
+        if self.running_plan() and self.state.at != self.manager.next_location():
+            self.cmd_queue.put(self.state.graph.node_value(self.manager.next_location()))
+            self.stdscr.addstr(5, 0, f'Sent next plan step: {self.manager.next_location()} ({tag})')
+
+    def next_go_step(self):
+        if self.state.at != self.goal:
+            next_step = self.state.graph.next_step_from_to(self.state.at, self.goal)
+            self.cmd_queue.put(self.state.graph.node_value(next_step))
+            self.stdscr.addstr(5, 0, f'Sent next step: {next_step}')
+        else:
+            self.goal = None
+            self.next_step = None
 
     def other_update(self):
         self.stdscr.addstr(2, 0, f"> {self.current_input}                                 ")
@@ -293,7 +308,7 @@ class RobotMapRunner:
         elif self.manager.plan_active():
             self.stdscr.addstr(5, 0, f"@{self.state.at}; heading towards {self.manager.next_location()}")
         else:
-            self.stdscr.addstr(5, 0, f"@{self.state.at}")
+            self.stdscr.addstr(5, 0, f"@{self.state.at}{' ' * 40}")
 
 
 if __name__ == '__main__':
