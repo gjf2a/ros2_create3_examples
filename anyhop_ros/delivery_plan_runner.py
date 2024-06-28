@@ -234,13 +234,22 @@ def run_robot_map(stdscr, filename, robot, map_data):
                 if manager.plan_active():
                     if state.at != manager.next_location():
                         cmd_queue.put(state.graph.node_value(manager.next_location()))
-                elif state.at != goal:
-                    next_step = state.graph.next_step_from_to(state.at, goal)
-                    cmd_queue.put(state.graph.node_value(next_step))
-                    stdscr.addstr(5, 0, f'Sent next step: {next_step}')
+                elif next_step is not None:
+                    if state.at != goal:
+                        next_step = state.graph.next_step_from_to(state.at, goal)
+                        cmd_queue.put(state.graph.node_value(next_step))
+                        stdscr.addstr(5, 0, f'Sent next step: {next_step}')
+                    else:
+                        goal = None
+                        next_step = None
         stdscr.addstr(2, 0, f"> {current_input}                                 ")
         stdscr.addstr(8, 0, f"{'active  ' if active.is_set() else 'inactive'}")
-        stdscr.addstr(5, 0, f"@{state.at}; heading to {goal} via {next_step}        ")
+        if next_step is not None:
+            stdscr.addstr(5, 0, f"@{state.at}; heading to {goal} via {next_step}        ")
+        elif manager.plan_active():
+            stdscr.addstr(5, 0, f"@{state.at}; heading towards {manager.next_location()}")
+        else:
+            stdscr.addstr(5, 0, f"@{state.at}")
         stdscr.refresh()
     finished.set()
     ht.join()
