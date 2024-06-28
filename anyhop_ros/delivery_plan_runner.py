@@ -289,7 +289,7 @@ class RobotMapRunner:
     def next_plan_step(self, tag):
         if self.running_plan() and self.state.at != self.manager.next_location():
             self.cmd_queue.put(self.state.graph.node_value(self.manager.next_location()))
-            self.stdscr.addstr(6, 0, f'Sent next plan step: {self.manager.next_location()} ({tag})')
+            self.stdscr.addstr(6, 0, f'Sent next plan step: @{self.state.at} -> {self.manager.next_location()} ({tag})')
 
     def next_go_step(self):
         if self.state.at != self.goal:
