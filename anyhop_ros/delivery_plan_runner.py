@@ -30,7 +30,8 @@ def print_odometry(stdscr, msg: Odometry):
 def main(stdscr):
     with open(sys.argv[2], 'rb') as f:
         map_data = pickle.load(f)
-        run_robot_map(stdscr, sys.argv[2], sys.argv[1], map_data)
+        runner = RobotMapRunner(stdscr, sys.argv[2], sys.argv[1], map_data)
+        runner.run_loop()
 
 
 class PlanManager:
@@ -95,166 +96,198 @@ def holding_thread(finished, holding):
     GPIO.cleanup()
 
 
-def run_robot_map(stdscr, filename, robot, map_data):
-    state = State(filename)
-    state.graph = map_data.square_graph()
-    state.at = '$$'
-    state.capacity = 1
-    state.holding = []
-    state.package_locations = {}
-    state.package_goals = {}
+class RobotMapRunner:
+    def __init__(self, stdscr, filename, robot, map_data):
+        self.state = State(filename)
+        self.state.graph = map_data.square_graph()
+        self.state.at = '$$'
+        self.state.capacity = 1
+        self.state.holding = []
+        self.state.package_locations = {}
+        self.state.package_goals = {}
 
-    stdscr.nodelay(True)
-    stdscr.clear()
-    curses.curs_set(0)
-
-    finished = threading.Event()
-    ros_ready = threading.Event()
-    active = threading.Event()
-    holding = threading.Event()
-    pos_queue = queue.Queue()
-    cmd_queue = queue.Queue()
-    status_queue = queue.Queue()
-    manager = PlanManager(holding)
-    current_input = ''
-
-    holding.clear()
-    
-    st = threading.Thread(target=spin_thread, args=(finished, ros_ready, lambda: GoToNode(pos_queue, cmd_queue, status_queue, active, robot)))
-    st.start()
-
-    ht = threading.Thread(target=holding_thread, args=(finished, holding))
-    ht.start()
-
-    next_step = None
-    goal = None
-
-    stdscr.addstr(0, 0, '"quit" to quit, "stop" to stop, "go [name]" to go to a location; "reset" to reset odometry; "see [name]" to see coordinate')
-    stdscr.addstr(1, 0, '"at [item] [location]..." to declare 1+ items at locations; "deliver [item] [location]..." to deliver 1+ items')
-    map_str = map_data.square_name_str()
-    for i, line in enumerate(map_str.split('\n')):
-        stdscr.addstr(11 + i, 0, line)
-    stdscr.refresh()
-    
-    while True:
-        try:
-            k = stdscr.getkey()
-            curses.flushinp()
-            if k == '\n':
-                if current_input == 'quit':
-                    break
-                elif current_input.startswith('see'):
-                    parts = current_input.split()
-                    if len(parts) >= 2:
-                        stdscr.addstr(6, 0, f"{state.graph.node_value(parts[1])}" if parts[1] in state.graph else 'Unrecognized')
-                    else:
-                        stdscr.addstr(6, 0, "see what?")
-                elif current_input == 'stop':
-                    drain_queue(cmd_queue)
-                    active.clear()
-                elif current_input == 'reset':
-                    drain_queue(cmd_queue)
-                    active.clear()
-                    cmd_queue.put('reset')
-                elif current_input.startswith("go"):
-                    parts = current_input.split()
-                    if len(parts) >= 2:
-                        if parts[1] in state.graph:
-                            goal = parts[1]
-                            next_step = state.graph.next_step_from_to(state.at, goal)
-                            cmd_queue.put(state.graph.node_value(next_step))
-                            stdscr.addstr(6, 0, f'sent request "{current_input}"                ')
-                        else:
-                            stdscr.addstr(6, 0, f'Unknown location: {parts[1]}')
-                    else:
-                        stdscr.addstr(6, 0, 'go where?')
-                elif current_input.startswith("at"):
-                    parts = current_input.split()
-                    if len(parts) >= 3 and len(parts) % 2 == 1:
-                        for i in range(1, len(parts), 2):
-                            item_name = parts[i]
-                            item_location = parts[i + 1]
-                            if item_location in state.graph:
-                                state.package_locations[item_name] = item_location
-                                stdscr.addstr(9, 0, str(state.package_locations))
-                            else:
-                                stdscr.addstr(6, 0, f'Unrecognized location: {item_location}')
-                                break
-                    else:
-                        stdscr.addstr(6, 0, 'at: wrong # arguments')
-                elif current_input.startswith("deliver"):
-                    parts = current_input.split()
-                    if len(parts) >= 3 and len(parts) % 2 == 1:
-                        state.package_goals = {}
-                        for i in range(1, len(parts), 2):
-                            item_name = parts[i]
-                            item_location = parts[i + 1]
-                            if item_location in state.graph:
-                                state.package_goals[item_name] = item_location
-                            else:
-                                stdscr.addstr(6, 0, f'Unrecognized location: {item_location}')
-                                break
-                        manager.make_delivery_plan(state)
-                        if state.at != manager.next_location():
-                            cmd_queue.put(state.graph.node_value(manager.next_location()))
-                    else:
-                        stdscr.addstr(6, 0, 'deliver: wrong # arguments')
-                else:
-                    stdscr.addstr(6, 0, f'Unrecognized input: "{current_input}"')
-                current_input = ''
-            elif k == '\b':
-                current_input = current_input[:-1]
-            else:
-                current_input += k
-        except curses.error as e:
-            if str(e) != 'no input':
-                stdscr.addstr(6, 0, traceback.format_exc())
-
-        if manager.plan_active():
-            stdscr.addstr(9, 0, str(state.package_locations))
-            stdscr.addstr(10, 0, f"Plan running; step {manager.current_step}  {manager.current_action()} ")
-            manager.check_step(state)
-            if manager.plan_active() and state.at != manager.next_location():
-                cmd_queue.put(state.graph.node_value(manager.next_location()))
-        else:
-            stdscr.addstr(10, 0, "No plan running                                                                        ")
-
-        if ros_ready.is_set():
-            stdscr.addstr(5, 0, "ROS2 ready")
-
-        p = drain_queue(pos_queue)
-        if p:
-            print_odometry(stdscr, p)
-            state.at, _ = state.graph.closest_node(p.pose.pose.position.x, p.pose.pose.position.y)
-
-        s = drain_queue(status_queue)
-        if s:
-            stdscr.addstr(7, 0, f"{s}                                                ")
-            if s == 'Stopping':
-                if manager.plan_active():
-                    if state.at != manager.next_location():
-                        cmd_queue.put(state.graph.node_value(manager.next_location()))
-                elif next_step is not None:
-                    if state.at != goal:
-                        next_step = state.graph.next_step_from_to(state.at, goal)
-                        cmd_queue.put(state.graph.node_value(next_step))
-                        stdscr.addstr(5, 0, f'Sent next step: {next_step}')
-                    else:
-                        goal = None
-                        next_step = None
-        stdscr.addstr(2, 0, f"> {current_input}                                 ")
-        stdscr.addstr(8, 0, f"{'active  ' if active.is_set() else 'inactive'}")
-        if next_step is not None:
-            stdscr.addstr(5, 0, f"@{state.at}; heading to {goal} via {next_step}        ")
-        elif manager.plan_active():
-            stdscr.addstr(5, 0, f"@{state.at}; heading towards {manager.next_location()}")
-        else:
-            stdscr.addstr(5, 0, f"@{state.at}")
+        stdscr.nodelay(True)
+        stdscr.clear()
+        stdscr.addstr(0, 0,
+                      '"quit" to quit, "stop" to stop, "go [name]" to go to a location; "reset" to reset odometry; "see [name]" to see coordinate')
+        stdscr.addstr(1, 0,
+                      '"at [item] [location]..." to declare 1+ items at locations; "deliver [item] [location]..." to deliver 1+ items')
+        map_str = map_data.square_name_str()
+        for i, line in enumerate(map_str.split('\n')):
+            stdscr.addstr(11 + i, 0, line)
         stdscr.refresh()
-    finished.set()
-    ht.join()
-    st.join()
-    
+        self.stdscr = stdscr
+
+        self.finished = threading.Event()
+        self.ros_ready = threading.Event()
+        self.active = threading.Event()
+        self.holding = threading.Event()
+        self.pos_queue = queue.Queue()
+        self.cmd_queue = queue.Queue()
+        self.status_queue = queue.Queue()
+        self.manager = PlanManager(self.holding)
+        self.current_input = ''
+
+        self.holding.clear()
+
+        self.st = threading.Thread(target=spin_thread, args=(self.finished, self.ros_ready,
+                                                             lambda: GoToNode(self.pos_queue, self.cmd_queue,
+                                                                              self.status_queue, self.active, robot)))
+        self.ht = threading.Thread(target=holding_thread, args=(self.finished, self.holding))
+
+        self.next_step = None
+        self.goal = None
+
+    def run_loop(self):
+        self.st.start()
+        self.ht.start()
+
+        while not self.finished.is_set():
+            try:
+                k = self.stdscr.getkey()
+                curses.flushinp()
+                if k == '\n':
+                    self.dispatch_command()
+                    self.current_input = ''
+                elif k == '\b':
+                    self.current_input = self.current_input[:-1]
+                else:
+                    self.current_input += k
+            except curses.error as e:
+                if str(e) != 'no input':
+                    self.stdscr.addstr(6, 0, traceback.format_exc())
+
+            if self.ros_ready.is_set():
+                self.stdscr.addstr(5, 0, "ROS2 ready")
+
+            self.show_plan_status()
+            self.odometry_update()
+            self.status_update()
+            self.other_update()
+            self.stdscr.refresh()
+
+        self.ht.join()
+        self.st.join()
+
+    def dispatch_command(self):
+        if self.current_input == 'quit':
+            self.finished.set()
+        elif self.current_input.startswith('see'):
+            self.see()
+        elif self.current_input == 'stop':
+            drain_queue(self.cmd_queue)
+            self.active.clear()
+        elif self.current_input == 'reset':
+            drain_queue(self.cmd_queue)
+            self.active.clear()
+            self.cmd_queue.put('reset')
+        elif self.current_input.startswith("go"):
+            self.go()
+        elif self.current_input.startswith("at"):
+            self.at()
+        elif self.current_input.startswith("deliver"):
+            self.deliver()
+        else:
+            self.stdscr.addstr(6, 0, f'Unrecognized input: "{self.current_input}"')
+
+    def see(self):
+        parts = self.current_input.split()
+        if len(parts) >= 2:
+            location = f"{self.state.graph.node_value(parts[1])}" if parts[1] in self.state.graph else 'Unrecognized'
+            self.stdscr.addstr(6, 0, location)
+        else:
+            self.stdscr.addstr(6, 0, "see what?")
+
+    def go(self):
+        parts = self.current_input.split()
+        if len(parts) >= 2:
+            if parts[1] in self.state.graph:
+                goal = parts[1]
+                next_step = self.state.graph.next_step_from_to(self.state.at, goal)
+                self.cmd_queue.put(self.state.graph.node_value(next_step))
+                self.stdscr.addstr(6, 0, f'sent request "{self.current_input}"                ')
+            else:
+                self.stdscr.addstr(6, 0, f'Unknown location: {parts[1]}')
+        else:
+            self.stdscr.addstr(6, 0, 'go where?')
+
+    def at(self):
+        parts = self.current_input.split()
+        if len(parts) >= 3 and len(parts) % 2 == 1:
+            for i in range(1, len(parts), 2):
+                item_name = parts[i]
+                item_location = parts[i + 1]
+                if item_location in self.state.graph:
+                    self.state.package_locations[item_name] = item_location
+                    self.stdscr.addstr(9, 0, str(self.state.package_locations))
+                else:
+                    self.stdscr.addstr(6, 0, f'Unrecognized location: {item_location}')
+                    break
+        else:
+            self.stdscr.addstr(6, 0, 'at: wrong # arguments')
+
+    def deliver(self):
+        parts = self.current_input.split()
+        if len(parts) >= 3 and len(parts) % 2 == 1:
+            self.state.package_goals = {}
+            for i in range(1, len(parts), 2):
+                item_name = parts[i]
+                item_location = parts[i + 1]
+                if item_location in self.state.graph:
+                    self.state.package_goals[item_name] = item_location
+                else:
+                    self.stdscr.addstr(6, 0, f'Unrecognized location: {item_location}')
+                    break
+            self.manager.make_delivery_plan(self.state)
+            if self.state.at != self.manager.next_location():
+                self.cmd_queue.put(self.state.graph.node_value(self.manager.next_location()))
+        else:
+            self.stdscr.addstr(6, 0, 'deliver: wrong # arguments')
+
+    def show_plan_status(self):
+        if self.manager.plan_active():
+            self.stdscr.addstr(9, 0, str(self.state.package_locations))
+            self.stdscr.addstr(10, 0,
+                               f"Plan running; step {self.manager.current_step}  {self.manager.current_action()} ")
+            self.manager.check_step(self.state)
+            if self.manager.plan_active() and self.state.at != self.manager.next_location():
+                self.cmd_queue.put(self.state.graph.node_value(self.manager.next_location()))
+        else:
+            self.stdscr.addstr(10, 0, f"No plan running{' ' * 40}")
+
+    def odometry_update(self):
+        p = drain_queue(self.pos_queue)
+        if p:
+            print_odometry(self.stdscr, p)
+            self.state.at, _ = self.state.graph.closest_node(p.pose.pose.position.x, p.pose.pose.position.y)
+
+    def status_update(self):
+        s = drain_queue(self.status_queue)
+        if s:
+            self.stdscr.addstr(7, 0, f"{s}                                                ")
+            if s == 'Stopping':
+                if self.manager.plan_active():
+                    if self.state.at != self.manager.next_location():
+                        self.cmd_queue.put(self.state.graph.node_value(self.manager.next_location()))
+                elif self.next_step is not None:
+                    if self.state.at != self.goal:
+                        next_step = self.state.graph.next_step_from_to(self.state.at, self.goal)
+                        self.cmd_queue.put(self.state.graph.node_value(next_step))
+                        self.stdscr.addstr(5, 0, f'Sent next step: {next_step}')
+                    else:
+                        self.goal = None
+                        self.next_step = None
+
+    def other_update(self):
+        self.stdscr.addstr(2, 0, f"> {self.current_input}                                 ")
+        self.stdscr.addstr(8, 0, f"{'active  ' if self.active.is_set() else 'inactive'}")
+        if self.next_step is not None:
+            self.stdscr.addstr(5, 0, f"@{self.state.at}; heading to {self.goal} via {self.next_step}        ")
+        elif self.manager.plan_active():
+            self.stdscr.addstr(5, 0, f"@{self.state.at}; heading towards {self.manager.next_location()}")
+        else:
+            self.stdscr.addstr(5, 0, f"@{self.state.at}")
+
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
