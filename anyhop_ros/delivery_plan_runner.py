@@ -267,8 +267,8 @@ class RobotMapRunner:
             self.stdscr.addstr(6, 0, 'deliver: wrong # arguments')
 
     def show_plan_status(self):
+        self.stdscr.addstr(9, 0, str(self.state.package_locations))
         if self.running_plan():
-            self.stdscr.addstr(9, 0, str(self.state.package_locations))
             self.stdscr.addstr(10, 0,
                                f"Plan running; step {self.manager.current_step}  {self.manager.current_action()} ")
             if self.manager.check_step(self.state):
