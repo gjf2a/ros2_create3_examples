@@ -151,12 +151,6 @@ class RobotMapRunner:
                                                                               self.status_queue, self.active, robot)))
         self.ht = threading.Thread(target=holding_thread, args=(self.finished, self.holding))
 
-        self.next_step = None
-        self.goal = None
-
-    def running_go(self):
-        return self.goal is not None
-
     def running_plan(self):
         return self.manager.plan_active()
 
@@ -229,14 +223,7 @@ class RobotMapRunner:
             if parts[1] in self.state.graph:
                 if self.running_plan() or self.running_go():
                     self.stop()
-                goal = parts[1]
-                # Original version
-                #next_step = self.state.graph.next_step_from_to(self.state.at, goal)
-                #self.cmd_queue.put(self.state.graph.node_value(next_step))
-                #self.stdscr.addstr(6, 0, f'sent request "{self.current_input}"                ')
-
-                # New version
-                self.manager.make_travel_plan(self.state, goal)
+                self.manager.make_travel_plan(self.state, parts[1])
                 self.next_plan_step('go_to')
             else:
                 self.stdscr.addstr(6, 0, f'Unknown location: {parts[1]}')
@@ -297,29 +284,16 @@ class RobotMapRunner:
         s = drain_queue(self.status_queue)
         if s:
             self.stdscr.addstr(7, 0, f"{s}                                                ")
-            if s == 'Stopping' and self.running_go():
-                self.next_go_step()
 
     def next_plan_step(self, tag):
         if self.running_plan() and self.state.at != self.manager.next_location():
             self.cmd_queue.put(self.state.graph.node_value(self.manager.next_location()))
             self.stdscr.addstr(6, 0, f'Sent next plan step: @{self.state.at} -> {self.manager.next_location()} ({tag})')
 
-    def next_go_step(self):
-        if self.state.at != self.goal:
-            next_step = self.state.graph.next_step_from_to(self.state.at, self.goal)
-            self.cmd_queue.put(self.state.graph.node_value(next_step))
-            self.stdscr.addstr(5, 0, f'Sent next step: {next_step}')
-        else:
-            self.goal = None
-            self.next_step = None
-
     def other_update(self):
         self.stdscr.addstr(2, 0, f"> {self.current_input}                                 ")
         self.stdscr.addstr(8, 0, f"{'active  ' if self.active.is_set() else 'inactive'}")
-        if self.next_step is not None:
-            self.stdscr.addstr(5, 0, f"@{self.state.at}; heading to {self.goal} via {self.next_step}        ")
-        elif self.manager.plan_active():
+        if self.manager.plan_active():
             self.stdscr.addstr(5, 0, f"@{self.state.at}; heading towards {self.manager.next_location()}")
         else:
             self.stdscr.addstr(5, 0, f"@{self.state.at}{' ' * 40}")
