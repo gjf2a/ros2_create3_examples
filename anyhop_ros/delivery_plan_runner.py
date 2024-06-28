@@ -67,13 +67,19 @@ class PlanManager:
         return self.current_action()[0] == 'put_down' and not self.holding.is_set()
 
     def check_step(self, state):
+        updated = False
         if self.current_action()[0] == 'move_one_step' and state.at == self.next_location():
             self.current_step += 1
+            updated = True
         elif self.picked_up() or self.placed_down():
             state.package_locations = copy.deepcopy(self.state_after_action().package_locations)
             self.current_step += 1
-        if self.current_step >= len(self.plan):
+            updated = True
+
+        if updated and self.current_step >= len(self.plan):
             self.stop_plan()
+
+        return updated
 
     def plan_active(self):
         return self.current_step is not None and self.current_step < len(self.plan)
@@ -265,8 +271,8 @@ class RobotMapRunner:
             self.stdscr.addstr(9, 0, str(self.state.package_locations))
             self.stdscr.addstr(10, 0,
                                f"Plan running; step {self.manager.current_step}  {self.manager.current_action()} ")
-            self.manager.check_step(self.state)
-            self.next_plan_step('check')
+            if self.manager.check_step(self.state):
+                self.next_plan_step('check')
         else:
             self.stdscr.addstr(10, 0, f"No plan running{' ' * 40}")
 
@@ -280,11 +286,8 @@ class RobotMapRunner:
         s = drain_queue(self.status_queue)
         if s:
             self.stdscr.addstr(7, 0, f"{s}                                                ")
-            if s == 'Stopping':
-                if self.running_plan():
-                    self.next_plan_step('update')
-                elif self.running_go():
-                    self.next_go_step()
+            if s == 'Stopping' and self.running_go():
+                self.next_go_step()
 
     def next_plan_step(self, tag):
         if self.running_plan() and self.state.at != self.manager.next_location():
