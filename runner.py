@@ -248,36 +248,43 @@ class GoToNode(HdxNode):
         p = pos.pose.pose.position
         h = pos.pose.pose.orientation
         if self.active.is_set():
-            euler = quaternion2euler(h)
-            x, y = self.goal_position
-            angle_disparity = angle_diff(math.atan2(y - p.y, x - p.x), euler[0])
-            distance = euclidean_distance(self.goal_position, (p.x, p.y))
-            if abs(angle_disparity) > GO_TO_ANGLE_TOLERANCE:
-                sign = 1 if angle_disparity >= 0 else -1
-                self.publish_twist(turn_twist(sign * math.pi / 4))
-                self.status_queue.put(f"Turning toward {self.goal_position}; sign is {sign}; disparity {angle_disparity:.2f}")
-            elif distance > GO_TO_DISTANCE_TOLERANCE:
-                self.publish_twist(straight_twist(0.5))
-                self.status_queue.put(f"Forward to {self.goal_position}")
-            else:
-                self.active.clear()
-                self.status_queue.put("Stopping")
+            self.move_towards_goal(p, h)
         elif self.cmd_queue.empty():
             self.publish_twist(straight_twist(0.0))
             self.status_queue.put("Stopped")
         else:
-            msg = self.cmd_queue.get()
-            if type(msg) == tuple:
-                self.goal_position = msg
-                self.active.set()
-                self.status_queue.put(f"Received {self.goal_position}")
-            elif msg == 'reset':
-                self.publish_twist(straight_twist(0.0))
-                self.status_queue.put("Resetting odometry...")
-                self.reset_odom()
-                self.status_queue.put("Reset complete")
-            else:
-                self.status_queue.put(f"Unrecognized command: {msg}")
+            self.process_command()
+
+    def move_towards_goal(self, p, h):
+        euler = quaternion2euler(h)
+        x, y = self.goal_position
+        angle_disparity = angle_diff(math.atan2(y - p.y, x - p.x), euler[0])
+        distance = euclidean_distance(self.goal_position, (p.x, p.y))
+        if abs(angle_disparity) > GO_TO_ANGLE_TOLERANCE:
+            sign = 1 if angle_disparity >= 0 else -1
+            self.publish_twist(turn_twist(sign * math.pi / 4))
+            self.status_queue.put(
+                f"Turning toward {self.goal_position}; sign is {sign}; disparity {angle_disparity:.2f}")
+        elif distance > GO_TO_DISTANCE_TOLERANCE:
+            self.publish_twist(straight_twist(0.5))
+            self.status_queue.put(f"Forward to {self.goal_position}")
+        else:
+            self.active.clear()
+            self.status_queue.put("Stopping")
+
+    def process_command(self):
+        msg = self.cmd_queue.get()
+        if type(msg) == tuple:
+            self.goal_position = msg
+            self.active.set()
+            self.status_queue.put(f"Received {self.goal_position}")
+        elif msg == 'reset':
+            self.publish_twist(straight_twist(0.0))
+            self.status_queue.put("Resetting odometry...")
+            self.reset_odom()
+            self.status_queue.put("Reset complete")
+        else:
+            self.status_queue.put(f"Unrecognized command: {msg}")
 
 
 def run_single_node(node_maker):
