@@ -262,17 +262,20 @@ class GoToNode(HdxNode):
         x, y = self.goal_position
         angle_disparity = angle_diff(math.atan2(y - p.y, x - p.x), euler[0])
         distance = euclidean_distance(self.goal_position, (p.x, p.y))
-        if abs(angle_disparity) > GO_TO_ANGLE_TOLERANCE:
-            sign = 1 if angle_disparity >= 0 else -1
-            self.publish_twist(turn_twist(sign * math.pi / 4))
-            self.status_queue.put(
-                f"Turning toward {self.goal_position}; sign is {sign}; disparity {angle_disparity:.2f}")
-        elif distance > GO_TO_DISTANCE_TOLERANCE:
-            self.publish_twist(straight_twist(0.5))
-            self.status_queue.put(f"Forward to {self.goal_position}")
-        else:
+        if distance < GO_TO_DISTANCE_TOLERANCE:
             self.active.clear()
             self.status_queue.put("Stopping")
+        else:
+            far = fuzzify_rising(distance, 0.0, 0.2)
+            aimed = fuzzify_triangle(angle_disparity, -GO_TO_ANGLE_TOLERANCE*4, 0.0, GO_TO_ANGLE_TOLERANCE*4)
+            turn = fuzzify_rising(abs(angle_disparity), 0.0, math.pi/2)
+            sign = 1 if angle_disparity >= 0 else -1
+            t = Twist()
+            t.linear.x = defuzzify(far * aimed, 0.0, 0.5)
+            t.angular.z = defuzzify(sign * turn, 0.0, math.pi/4)
+            self.publish_twist(t)
+            self.status_queue.put(f"far: {far:.2f} aimed: {aimed:.2f} turn: {'' if sign == 1 else '-'}{turn:.2f} linear.x: {t.linear.x:.2f} angular.z: {math.degrees(t.angular.z):.2f}")
+
 
     def process_command(self):
         msg = self.cmd_queue.get()
@@ -287,31 +290,6 @@ class GoToNode(HdxNode):
             self.status_queue.put("Reset complete")
         else:
             self.status_queue.put(f"Unrecognized command: {msg}")
-
-
-class FuzzyGoToNode(GoToNode):
-    def __init__(self, pos_queue: queue.Queue, cmd_queue: queue.Queue, status_queue: queue.Queue,
-                 active: threading.Event, namespace: str = ""):
-        super().__init__(pos_queue, cmd_queue, status_queue, active, namespace)
-
-    def move_towards_goal(self, p: Point, h: Quaternion):
-        euler = quaternion2euler(h)
-        x, y = self.goal_position
-        angle_disparity = angle_diff(math.atan2(y - p.y, x - p.x), euler[0])
-        distance = euclidean_distance(self.goal_position, (p.x, p.y))
-        if distance < GO_TO_DISTANCE_TOLERANCE:
-            self.active.clear()
-            self.status_queue.put("Stopping")
-        else:
-            far = fuzzify_rising(distance, 0.0, 1.0)
-            aimed = fuzzify_triangle(angle_disparity, -GO_TO_ANGLE_TOLERANCE*4, 0.0, GO_TO_ANGLE_TOLERANCE*4)
-            turn = fuzzify_rising(abs(angle_disparity), 0.0, math.pi/2)
-            sign = 1 if angle_disparity >= 0 else -1
-            t = Twist()
-            t.linear.x = defuzzify(far * aimed, 0.0, 0.5)
-            t.angular.z = defuzzify(sign * turn, 0.0, math.pi/4)
-            self.publish_twist(t)
-            self.status_queue.put(f"far: {far:.2f} aimed: {aimed:.2f} turn: {'' if sign == 1 else '-'}{turn:.2f} linear.x: {t.linear.x:.2f} angular.z: {math.degrees(t.angular.z):.2f}")
 
 
 def run_single_node(node_maker):
