@@ -258,6 +258,15 @@ class GoToNode(HdxNode):
             self.process_command()
 
     def move_towards_goal(self, p: Point, h: Quaternion):
+        """
+        Given a 3D `Point` `p` representing position and a 4D `Quaternion`
+        representing orientation, this function creates a `Twist` to move
+        the robot towards its goal.
+
+        It creates two fuzzy variables: `far` and `turn`. The basic logic is:
+        * if `far` and not `turn`, go forward (defuzzify to `linear.x`)
+        * if `turn`, rotate (defuzzify to `angular.z`)
+        """
         euler = quaternion2euler(h)
         x, y = self.goal_position
         angle_disparity = angle_diff(math.atan2(y - p.y, x - p.x), euler[0])
@@ -267,14 +276,14 @@ class GoToNode(HdxNode):
             self.status_queue.put("Stopping")
         else:
             far = fuzzify_rising(distance, 0.0, 0.2)
-            aimed = fuzzify_triangle(angle_disparity, -GO_TO_ANGLE_TOLERANCE*4, 0.0, GO_TO_ANGLE_TOLERANCE*4)
-            turn = fuzzify_rising(abs(angle_disparity), 0.0, math.pi/2)
+            turn = fuzzify_rising(abs(angle_disparity), 0.0, GO_TO_ANGLE_TOLERANCE * 4)
             sign = 1 if angle_disparity >= 0 else -1
             t = Twist()
-            t.linear.x = defuzzify(far * aimed, 0.0, 0.5)
-            t.angular.z = defuzzify(sign * turn, 0.0, math.pi/4)
+            t.linear.x = defuzzify(min(far, f_not(turn)), 0.0, 0.5)
+            t.angular.z = sign * defuzzify(turn, 0.0, math.pi / 4)
             self.publish_twist(t)
-            self.status_queue.put(f"far: {far:.2f} aimed: {aimed:.2f} turn: {'' if sign == 1 else '-'}{turn:.2f} linear.x: {t.linear.x:.2f} angular.z: {math.degrees(t.angular.z):.2f}")
+            self.status_queue.put(
+            f"far: {far:.2f} turn: {'' if sign == 1 else '-'}{turn:.2f} linear.x: {t.linear.x:.2f} angular.z: {math.degrees(t.angular.z):.2f}")
 
 
     def process_command(self):
