@@ -1,7 +1,7 @@
 import pickle, curses, threading, queue, sys, copy
 import rclpy
 from nav_msgs.msg import Odometry
-from runner import GoToNode, drain_queue
+from runner import FuzzyGoToNode, drain_queue
 from pyhop_anytime import State
 from pyhop_anytime_examples.graph_package_world import make_graph_planner
 import RPi.GPIO as GPIO
@@ -147,7 +147,7 @@ class RobotMapRunner:
         self.holding.clear()
 
         self.st = threading.Thread(target=spin_thread, args=(self.finished, self.ros_ready,
-                                                             lambda: GoToNode(self.pos_queue, self.cmd_queue,
+                                                             lambda: FuzzyGoToNode(self.pos_queue, self.cmd_queue,
                                                                               self.status_queue, self.active, robot)))
         self.ht = threading.Thread(target=holding_thread, args=(self.finished, self.holding))
 

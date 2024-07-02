@@ -1,19 +1,15 @@
 import sys
 import runner
-import time
 import rclpy
 import cv2
 import math
 
 from geometry_msgs.msg import Twist
 from irobot_create_msgs.msg import InterfaceButtons
-from irobot_create_msgs.msg import IrIntensityVector, HazardDetectionVector, WheelStatus
-from rclpy.qos import qos_profile_sensor_data
 
-from morph_contour_demo import Timer, find_contours, find_close_contour, multi_flood_fill
+from morph_contour_demo import find_contours, find_close_contour, multi_flood_fill
 
 from queue import Queue
-import threading
 
 from fuzzy import *
 from ir_bump_turn import IrBumpTurnNode
