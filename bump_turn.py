@@ -59,7 +59,7 @@ class BumpTurnBot(runner.WheelMonitorNode):
 
     def timer_callback(self):
         self.record_first_callback()
-        if self.bump_node.has_started() and not self.bump_node.is_turning():
+        if not self.bump_node.is_turning():
             if self.bump_node.bump_clear():
                 self.publish_twist(runner.straight_twist(0.5))
             elif self.wheels_stopped():

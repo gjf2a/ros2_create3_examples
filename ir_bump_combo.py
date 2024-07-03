@@ -17,7 +17,7 @@ class IrBumpTurnBot(runner.WheelMonitorNode):
 
     def timer_callback(self):
         self.record_first_callback()
-        if self.bump_node.has_started() and not self.bump_node.is_turning():
+        if not self.bump_node.is_turning():
             if self.bump_node.bump_clear():
                 if not self.ir_node.is_turning():
                     if self.ir_node.ir_clear():
