@@ -48,6 +48,8 @@ def main(stdscr):
                 stdscr.addstr(4, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})        ")
             elif type(pose) == float:
                 stdscr.addstr(2, 0, f"{pose:.2f}")
+            elif type(pose) == list:
+                stdscr.addstr(6, 0, f"{pose}")
             else:
                 stdscr.addstr(5, 0, f"{type(pose)} {pose}")
         stdscr.refresh()

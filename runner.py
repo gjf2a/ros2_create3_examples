@@ -214,11 +214,11 @@ class RemoteNode(HdxNode):
     def listener_callback(self, msg: Odometry):
         self.pos_queue.put(msg.pose.pose)
 
-    def hazard_callback(self, msg):
+    def hazard_callback(self, msg: HazardDetectionVector):
         self.pos_queue.put(msg)
 
-    def ir_callback(self, msg):
-        self.pos_queue.put(msg)
+    def ir_callback(self, msg: IrIntensityVector):
+        self.pos_queue.put([reading.value for reading in msg.readings])
 
     def timer_callback(self):
         self.pos_queue.put(self.elapsed_time())
