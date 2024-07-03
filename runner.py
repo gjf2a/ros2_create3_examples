@@ -199,9 +199,9 @@ class RemoteNode(HdxNode):
 
         self.commands = {
             'w': straight_twist(0.5),
-            'a': turn_twist(math.pi/4),
+            'a': turn_twist(math.pi/6),
             's': straight_twist(0.0),
-            'd': turn_twist(-math.pi/4)
+            'd': turn_twist(-math.pi/6)
         }
 
         self.subscribe_odom(self.listener_callback)

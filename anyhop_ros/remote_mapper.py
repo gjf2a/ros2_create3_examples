@@ -1,3 +1,5 @@
+# sudo chmod 666 /dev/video*
+
 import threading, subprocess, sys, math, curses, pickle, datetime
 
 from pyhop_anytime import *
