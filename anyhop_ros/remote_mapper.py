@@ -56,13 +56,15 @@ class Runner:
         self.running = threading.Event()
         self.cmd_queue = Queue()
         self.pos_queue = Queue()
+        self.bump_queue = Queue()
         self.image_queue = Queue()
+        self.ir_queue = Queue()
         self.last_cmd = None
         self.last_time = None
 
     def main_loop(self):
         self.running.set()
-        self.robot_thread = threading.Thread(target=spin_thread, args=(self.running, lambda: RemoteNode(self.cmd_queue, self.pos_queue, f"/{self.bot}")))
+        self.robot_thread = threading.Thread(target=spin_thread, args=(self.running, lambda: RemoteNode(self.cmd_queue, self.pos_queue, self.ir_queue, self.bump_queue, f"/{self.bot}")))
 
         self.info_window.addstr(0, 0, 'WASD to move; R to reset position; Q to quit')
         self.info_window.refresh()
@@ -138,6 +140,13 @@ class Runner:
             self.info_window.addstr(3, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})        ")
             self.info_window.addstr(4, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})        ")
             self.map.visit(p.x, p.y)
+
+        ir = drain_queue(self.ir_queue)
+        if ir:
+            self.info_window.addstr(5, 0, f"ir: {ir}{' ' * 20}")
+        bump = drain_queue(self.bump_queue)
+        if bump:
+            self.info_window.addstr(6, 0, f"{bump}{' ' * 20}")
         self.info_window.refresh()
 
         

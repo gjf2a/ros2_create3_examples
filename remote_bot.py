@@ -27,8 +27,11 @@ def main(stdscr):
     finished = threading.Event()
     cmd_queue = Queue()
     pos_queue = Queue()
+    bump_queue = Queue()
+    ir_queue = Queue()
+    bump_list = []
     
-    st = threading.Thread(target=spin_thread, args=(finished, lambda: RemoteNode(cmd_queue, pos_queue, sys.argv[1])))
+    st = threading.Thread(target=spin_thread, args=(finished, lambda: RemoteNode(cmd_queue, pos_queue, ir_queue, bump_queue, sys.argv[1])))
     st.start()
 
     stdscr.addstr(1, 0, 'WASD to move; Q to quit')
@@ -40,8 +43,11 @@ def main(stdscr):
             break
         elif not cmd_queue.full():
             cmd_queue.put(k)
+
         pose = drain_queue(pos_queue)
         if pose:
+            if type(pose) == str:
+                stdscr.addstr(5, 0, f"str: {pose}")
             if type(pose) == Pose:
                 p = pose.position
                 h = pose.orientation
@@ -49,15 +55,17 @@ def main(stdscr):
                 stdscr.addstr(4, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})        ")
             elif type(pose) == float:
                 stdscr.addstr(2, 0, f"{pose:.2f}")
-            elif type(pose) == list:
-                stdscr.addstr(6, 0, f"ir: {pose}{' ' * 20}")
-            elif type(pose) == str:
-                if pose.startswith('bump'):
-                    stdscr.addstr(7, 0, f"hazard: {pose}{' ' * 20}")
-                else:
-                    stdscr.addstr(5, 0, f"{type(pose)} {pose}")
             else:
-                stdscr.addstr(8, 0, f"{type(pose)} {pose}")
+                stdscr.addstr(7, 0, f"{type(pose)} {pose}")
+
+        ir = drain_queue(ir_queue)
+        if ir:
+            stdscr.addstr(6, 0, f"ir: {ir}{' ' * 30}")
+
+        if not bump_queue.empty():
+            b = bump_queue.get()
+            bump_list.append(b)
+            stdscr.addstr(8, 0, f"{bump_list}")
         stdscr.refresh()
 
     finished.set()

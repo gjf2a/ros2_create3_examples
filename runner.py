@@ -194,7 +194,7 @@ class RemoteNode(HdxNode):
     listener_callback() - sends pose information when received
     timer_callback() - sends timing and key information at time intervals.
     """
-    def __init__(self, cmd_queue, pos_queue, namespace: str = ""):
+    def __init__(self, cmd_queue, pos_queue, ir_queue, bump_queue, namespace: str = ""):
         super().__init__('remote_control_node', namespace)
 
         self.commands = {
@@ -210,15 +210,19 @@ class RemoteNode(HdxNode):
         self.create_timer(0.1, self.timer_callback)
         self.cmd_queue = cmd_queue
         self.pos_queue = pos_queue
+        self.bump_queue = bump_queue
+        self.ir_queue = ir_queue
 
     def listener_callback(self, msg: Odometry):
         self.pos_queue.put(msg.pose.pose)
 
     def hazard_callback(self, msg: HazardDetectionVector):
-        self.pos_queue.put(find_bump_from(msg.detections))
+        b = find_bump_from(msg.detections)
+        if b:
+            self.bump_queue.put(f"{b} {self.elapsed_time():.2f}")
 
     def ir_callback(self, msg: IrIntensityVector):
-        self.pos_queue.put([reading.value for reading in msg.readings])
+        self.ir_queue.put([reading.value for reading in msg.readings])
 
     def timer_callback(self):
         self.pos_queue.put(self.elapsed_time())
@@ -226,7 +230,7 @@ class RemoteNode(HdxNode):
         if msg is not None and msg in self.commands:
             self.publish_twist(self.commands[msg])
             # Send an echo so the sender knows the publish happened.
-            self.pos_queue.put(msg) 
+            #self.pos_queue.put(msg) 
 
 
 GO_TO_ANGLE_TOLERANCE = math.pi / 32
