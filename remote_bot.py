@@ -3,7 +3,7 @@ import threading
 from queue import Queue
 import sys
 import rclpy
-from runner import RemoteNode
+from runner import RemoteNode, drain_queue
 
 
 def spin_thread(finished, node_maker):
@@ -25,10 +25,10 @@ def main(stdscr):
     cmd_queue = Queue()
     pos_queue = Queue()
     
-    st = threading.Thread(target=spin_thread, args=(finished, lambda: RemoteNode(cmd_queue, pos_queue, f"/{sys.argv[1]}")))
+    st = threading.Thread(target=spin_thread, args=(finished, lambda: RemoteNode(cmd_queue, pos_queue, sys.argv[1])))
     st.start()
 
-    stdscr.addstr(1, 0, 'Enter "q" to quit')
+    stdscr.addstr(1, 0, 'WASD to move; Q to quit')
     stdscr.refresh()
     
     while True:
@@ -37,6 +37,13 @@ def main(stdscr):
             break
         elif not cmd_queue.full():
             cmd_queue.put(k)
+        pose = drain_queue(pos_queue)
+        if pose:
+            p = pose.position
+            h = pose.orientation
+            stdscr.addstr(3, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})        ")
+            stdscr.addstr(4, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})        ")
+
     finished.set()
     st.join()
     
