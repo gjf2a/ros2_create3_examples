@@ -28,6 +28,7 @@ def print_odometry(stdscr, msg: Odometry):
 
 
 def main(stdscr):
+    curses.curs_set(0)
     with open(sys.argv[2], 'rb') as f:
         map_data = pickle.load(f)
         runner = RobotMapRunner(stdscr, sys.argv[2], sys.argv[1], map_data)
@@ -303,5 +304,4 @@ if __name__ == '__main__':
     if len(sys.argv) < 3:
         print("Usage: python3 delivery_plan_runner.py robot pickled_map_file")
     else:
-        curses.curs_set(0)
         curses.wrapper(main)
