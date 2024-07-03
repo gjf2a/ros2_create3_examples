@@ -6,6 +6,7 @@ import sys
 from runner import RemoteNode, drain_queue
 import rclpy
 from geometry_msgs.msg import Pose
+from irobot_create_msgs.msg import HazardDetectionVector
 
 
 def spin_thread(finished, node_maker):
@@ -49,7 +50,9 @@ def main(stdscr):
             elif type(pose) == float:
                 stdscr.addstr(2, 0, f"{pose:.2f}")
             elif type(pose) == list:
-                stdscr.addstr(6, 0, f"{pose}")
+                stdscr.addstr(6, 0, f"{pose}{' ' * 20}")
+            elif type(pose) == HazardDetectionVector:
+                stdscr.addstr(7, 0, f"{pose}{' ' * 20}")
             else:
                 stdscr.addstr(5, 0, f"{type(pose)} {pose}")
         stdscr.refresh()
