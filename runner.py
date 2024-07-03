@@ -205,7 +205,7 @@ class RemoteNode(HdxNode):
         }
 
         self.subscribe_odom(self.listener_callback)
-        self.subscribe_hazard(self.hazard_calllback)
+        self.subscribe_hazard(self.hazard_callback)
         self.subscribe_ir(self.ir_callback)
         self.create_timer(0.1, self.timer_callback)
         self.cmd_queue = cmd_queue
