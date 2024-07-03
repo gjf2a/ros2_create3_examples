@@ -2,8 +2,10 @@ from curses import wrapper, curs_set
 import threading
 from queue import Queue
 import sys
-import rclpy
+
 from runner import RemoteNode, drain_queue
+import rclpy
+from geometry_msgs.msg import Pose
 
 
 def spin_thread(finished, node_maker):
@@ -39,10 +41,14 @@ def main(stdscr):
             cmd_queue.put(k)
         pose = drain_queue(pos_queue)
         if pose:
-            p = pose.position
-            h = pose.orientation
-            stdscr.addstr(3, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})        ")
-            stdscr.addstr(4, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})        ")
+            if type(pose) == Pose:
+                p = pose.position
+                h = pose.orientation
+                stdscr.addstr(3, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})        ")
+                stdscr.addstr(4, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})        ")
+            else:
+                stdscr.addstr(2, 0, f"{pose}")
+        stdscr.refresh()
 
     finished.set()
     st.join()
