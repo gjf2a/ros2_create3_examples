@@ -1,6 +1,6 @@
 # sudo chmod 666 /dev/video*
 
-import threading, subprocess, sys, math, curses, pickle, datetime
+import threading, subprocess, curses, pickle, datetime
 
 from pyhop_anytime import *
 from curses_vision_demo import video_capture, display_frame
@@ -8,11 +8,8 @@ from curses_vision_demo import video_capture, display_frame
 from queue import Queue
 
 import rclpy
-from rclpy.node import Node
-from rclpy.qos import qos_profile_sensor_data
-from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist, Pose
-from runner import RemoteNode, straight_twist, turn_twist, drain_queue
+from runner import RemoteNode, drain_queue
 from occupancy_grid import PathwayGrid
 
 
