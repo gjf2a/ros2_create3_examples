@@ -51,10 +51,13 @@ def main(stdscr):
                 stdscr.addstr(2, 0, f"{pose:.2f}")
             elif type(pose) == list:
                 stdscr.addstr(6, 0, f"ir: {pose}{' ' * 20}")
-            elif type(pose) == HazardDetectionVector:
-                stdscr.addstr(7, 0, f"hazard: {pose}{' ' * 20}")
+            elif type(pose) == str:
+                if pose.startswith('bump'):
+                    stdscr.addstr(7, 0, f"hazard: {pose}{' ' * 20}")
+                else:
+                    stdscr.addstr(5, 0, f"{type(pose)} {pose}")
             else:
-                stdscr.addstr(5, 0, f"{type(pose)} {pose}")
+                stdscr.addstr(8, 0, f"{type(pose)} {pose}")
         stdscr.refresh()
 
     finished.set()

@@ -215,7 +215,7 @@ class RemoteNode(HdxNode):
         self.pos_queue.put(msg.pose.pose)
 
     def hazard_callback(self, msg: HazardDetectionVector):
-        self.pos_queue.put(msg)
+        self.pos_queue.put(find_bump_from(msg))
 
     def ir_callback(self, msg: IrIntensityVector):
         self.pos_queue.put([reading.value for reading in msg.readings])
