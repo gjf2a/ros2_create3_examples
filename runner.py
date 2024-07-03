@@ -285,7 +285,6 @@ class GoToNode(HdxNode):
             self.status_queue.put(
             f"far: {far:.2f} turn: {'' if sign == 1 else '-'}{turn:.2f} linear.x: {t.linear.x:.2f} angular.z: {math.degrees(t.angular.z):.2f}")
 
-
     def process_command(self):
         msg = self.cmd_queue.get()
         if type(msg) == tuple:
