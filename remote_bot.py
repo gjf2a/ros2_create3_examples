@@ -49,7 +49,7 @@ def main(stdscr):
             elif type(pose) == float:
                 stdscr.addstr(2, 0, f"{pose:.2f}")
             else:
-                stdscr.addstr(5, 0, f"{pose}")
+                stdscr.addstr(5, 0, f"{type(pose)} {pose}")
         stdscr.refresh()
 
     finished.set()

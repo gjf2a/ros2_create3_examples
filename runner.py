@@ -205,12 +205,20 @@ class RemoteNode(HdxNode):
         }
 
         self.subscribe_odom(self.listener_callback)
+        self.subscribe_hazard(self.hazard_calllback)
+        self.subscribe_ir(self.ir_callback)
         self.create_timer(0.1, self.timer_callback)
         self.cmd_queue = cmd_queue
         self.pos_queue = pos_queue
 
     def listener_callback(self, msg: Odometry):
         self.pos_queue.put(msg.pose.pose)
+
+    def hazard_callback(self, msg):
+        self.pos_queue.put(msg)
+
+    def ir_callback(self, msg):
+        self.pos_queue.put(msg)
 
     def timer_callback(self):
         self.pos_queue.put(self.elapsed_time())
