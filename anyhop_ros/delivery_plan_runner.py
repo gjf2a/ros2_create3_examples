@@ -303,4 +303,5 @@ if __name__ == '__main__':
     if len(sys.argv) < 3:
         print("Usage: python3 delivery_plan_runner.py robot pickled_map_file")
     else:
+        curses.curs_set(0)
         curses.wrapper(main)

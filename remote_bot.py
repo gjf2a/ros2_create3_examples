@@ -22,9 +22,10 @@ def main(stdscr):
     stdscr.clear()
 
     finished = threading.Event()
-    msg_queue = Queue(maxsize=1)
+    cmd_queue = Queue()
+    pos_queue = Queue()
     
-    st = threading.Thread(target=spin_thread, args=(finished, lambda: RemoteNode(stdscr, msg_queue, f"/{sys.argv[1]}")))
+    st = threading.Thread(target=spin_thread, args=(finished, lambda: RemoteNode(cmd_queue, pos_queue, f"/{sys.argv[1]}")))
     st.start()
 
     stdscr.addstr(1, 0, 'Enter "q" to quit')
@@ -34,8 +35,8 @@ def main(stdscr):
         k = stdscr.getkey()
         if k == 'q':
             break
-        elif not msg_queue.full():
-            msg_queue.put(k)
+        elif not cmd_queue.full():
+            cmd_queue.put(k)
     finished.set()
     st.join()
     
