@@ -2,9 +2,6 @@ import sys
 import runner
 import rclpy
 
-from irobot_create_msgs.msg import HazardDetectionVector
-from geometry_msgs.msg import Twist
-from rclpy.qos import qos_profile_sensor_data
 
 class BumpTurnBot(runner.WheelMonitorNode):
     def __init__(self, namespace: str = ""):

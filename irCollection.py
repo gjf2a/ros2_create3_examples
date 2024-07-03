@@ -12,7 +12,7 @@ class IRSubscriber(Node):
     def __init__(self,namespace):
         super().__init__('IR_Subscriber')
         print('Creating subscription to the IrIntensity type over the /ir_intensity topic')
-        self.subscritption  = self.create_subscription(IrIntensityVector, namespace + '/ir_intensity', self.listener_callback, qos_profile_sensor_data)
+        self.subscription = self.create_subscription(IrIntensityVector, namespace + '/ir_intensity', self.listener_callback, qos_profile_sensor_data)
 
     def printIR(self,msg):
         values = []

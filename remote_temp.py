@@ -5,20 +5,16 @@
 import runner
 import sys
 import time
-import rclpy
-
-from geometry_msgs.msg import Twist
-from irobot_create_msgs.msg import InterfaceButtons
 from nav_msgs.msg import Odometry
 from rclpy.qos import qos_profile_sensor_data
 
 from queue import Queue
-import threading
 
 from w1thermsensor import W1ThermSensor
 from w1thermsensor.units import Unit
 
 import remote_vision
+
 
 class TemperatureBot(remote_vision.RemoteBot):
     def __init__(self, img_queue, namespace: str = "", temp_file: str = "temps.txt"):

@@ -2,9 +2,6 @@ import sys
 import math
 import runner
 import rclpy
-from irobot_create_msgs.msg import HazardDetectionVector
-from rclpy.qos import qos_profile_sensor_data
-from geometry_msgs.msg import Twist
 
 from runner import RotateActionClient
 
