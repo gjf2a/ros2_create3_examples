@@ -20,18 +20,10 @@ def spin_thread(finished, ros_ready, node_maker):
     rclpy.shutdown()
 
 
-def print_odometry(stdscr, msg: Odometry):
-    p = msg.pose.pose.position
-    h = msg.pose.pose.orientation
-    stdscr.addstr(3, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})")
-    stdscr.addstr(4, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})")
-
-
-def main(stdscr):
-    curses.curs_set(0)
+def main():
     with open(sys.argv[2], 'rb') as f:
         map_data = pickle.load(f)
-        runner = RobotMapRunner(stdscr, sys.argv[2], sys.argv[1], map_data)
+        runner = RobotMapRunner(sys.argv[2], sys.argv[1], map_data)
         runner.run_loop()
 
 
@@ -108,28 +100,16 @@ def holding_thread(finished, holding):
             holding.clear()
 
 
-
 class RobotMapRunner:
-    def __init__(self, stdscr, filename, robot, map_data):
+    def __init__(self, filename, robot, map_data, map_description):
         self.state = State(filename)
+        self.state.description = map_description
         self.state.graph = map_data.square_graph()
         self.state.at = '$$'
         self.state.capacity = 1
         self.state.holding = []
         self.state.package_locations = {}
         self.state.package_goals = {}
-
-        stdscr.nodelay(True)
-        stdscr.clear()
-        stdscr.addstr(0, 0,
-                      '"quit" to quit, "stop" to stop, "go [name]" to go to a location; "reset" to reset odometry; "see [name]" to see coordinate')
-        stdscr.addstr(1, 0,
-                      '"at [item] [location]..." to declare 1+ items at locations; "deliver [item] [location]..." to deliver 1+ items')
-        map_str = map_data.square_name_str()
-        for i, line in enumerate(map_str.split('\n')):
-            stdscr.addstr(11 + i, 0, line)
-        stdscr.refresh()
-        self.stdscr = stdscr
 
         self.finished = threading.Event()
         self.ros_ready = threading.Event()
@@ -151,37 +131,6 @@ class RobotMapRunner:
     def running_plan(self):
         return self.manager.plan_active()
 
-    def run_loop(self):
-        self.st.start()
-        self.ht.start()
-
-        while not self.finished.is_set():
-            try:
-                k = self.stdscr.getkey()
-                curses.flushinp()
-                if k == '\n':
-                    self.dispatch_command()
-                    self.current_input = ''
-                elif k == '\b':
-                    self.current_input = self.current_input[:-1]
-                else:
-                    self.current_input += k
-            except curses.error as e:
-                if str(e) != 'no input':
-                    self.stdscr.addstr(6, 0, traceback.format_exc())
-
-            if self.ros_ready.is_set():
-                self.stdscr.addstr(5, 0, "ROS2 ready")
-
-            self.show_plan_status()
-            self.odometry_update()
-            self.status_update()
-            self.other_update()
-            self.stdscr.refresh()
-
-        self.ht.join()
-        self.st.join()
-
     def dispatch_command(self):
         if self.current_input == 'quit':
             self.finished.set()
@@ -199,7 +148,7 @@ class RobotMapRunner:
         elif self.current_input.startswith("deliver"):
             self.deliver()
         else:
-            self.stdscr.addstr(6, 0, f'Unrecognized input: "{self.current_input}"')
+            print("Unrecognized input: " + self.current_input)
 
     def stop(self):
         self.manager.stop_plan()
@@ -210,9 +159,9 @@ class RobotMapRunner:
         parts = self.current_input.split()
         if len(parts) >= 2:
             location = f"{self.state.graph.node_value(parts[1])}" if parts[1] in self.state.graph else 'Unrecognized'
-            self.stdscr.addstr(6, 0, location)
+            print(location)
         else:
-            self.stdscr.addstr(6, 0, "see what?")
+            print("Object not found")
 
     def go(self):
         parts = self.current_input.split()
@@ -223,9 +172,9 @@ class RobotMapRunner:
                 self.manager.make_travel_plan(self.state, parts[1])
                 self.next_plan_step('go_to')
             else:
-                self.stdscr.addstr(6, 0, f'Unknown location: {parts[1]}')
+                print("unkown location")
         else:
-            self.stdscr.addstr(6, 0, 'go where?')
+            print("no location")
 
     def at(self):
         parts = self.current_input.split()
@@ -235,12 +184,11 @@ class RobotMapRunner:
                 item_location = parts[i + 1]
                 if item_location in self.state.graph:
                     self.state.package_locations[item_name] = item_location
-                    self.stdscr.addstr(9, 0, str(self.state.package_locations))
                 else:
-                    self.stdscr.addstr(6, 0, f'Unrecognized location: {item_location}')
+                    print("unknown location")
                     break
         else:
-            self.stdscr.addstr(6, 0, 'at: wrong # arguments')
+            print("wrong number arguments")
 
     def deliver(self):
         parts = self.current_input.split()
@@ -252,52 +200,19 @@ class RobotMapRunner:
                 if item_location in self.state.graph:
                     self.state.package_goals[item_name] = item_location
                 else:
-                    self.stdscr.addstr(6, 0, f'Unrecognized location: {item_location}')
+                    print("unrecognized location")
                     break
             if self.running_plan():
                 self.stop()
             self.manager.make_delivery_plan(self.state)
             self.next_plan_step('deliver')
         else:
-            self.stdscr.addstr(6, 0, 'deliver: wrong # arguments')
+            print("wrong number of arguments")
 
-    def show_plan_status(self):
-        self.stdscr.addstr(9, 0, str(self.state.package_locations))
-        if self.running_plan():
-            self.stdscr.addstr(10, 0,
-                               f"Plan running; step {self.manager.current_step}  {self.manager.current_action()} ")
-            if self.manager.check_step(self.state):
-                self.next_plan_step('check')
-        else:
-            self.stdscr.addstr(10, 0, f"No plan running{' ' * 40}")
-
-    def odometry_update(self):
-        p = drain_queue(self.pos_queue)
-        if p:
-            print_odometry(self.stdscr, p)
-            self.state.at, _ = self.state.graph.closest_node(p.pose.pose.position.x, p.pose.pose.position.y)
-
-    def status_update(self):
-        s = drain_queue(self.status_queue)
-        if s:
-            self.stdscr.addstr(7, 0, f"{s}                                                ")
-
-    def next_plan_step(self, tag):
-        if self.running_plan() and self.state.at != self.manager.next_location():
-            self.cmd_queue.put(self.state.graph.node_value(self.manager.next_location()))
-            self.stdscr.addstr(6, 0, f'Sent next plan step: @{self.state.at} -> {self.manager.next_location()} ({tag})')
-
-    def other_update(self):
-        self.stdscr.addstr(2, 0, f"> {self.current_input}                                 ")
-        self.stdscr.addstr(8, 0, f"{'active  ' if self.active.is_set() else 'inactive'}")
-        if self.manager.plan_active():
-            self.stdscr.addstr(5, 0, f"@{self.state.at}; heading towards {self.manager.next_location()}")
-        else:
-            self.stdscr.addstr(5, 0, f"@{self.state.at}{' ' * 40}")
 
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
         print("Usage: python3 delivery_plan_runner.py robot pickled_map_file")
     else:
-        curses.wrapper(main)
+        main()
