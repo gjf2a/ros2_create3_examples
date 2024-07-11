@@ -209,6 +209,8 @@ class RobotMapRunner:
         else:
             print("wrong number of arguments")
 
+    def next_plan_step(self, tag):
+        self.cmd_queue.put(self.state.graph.node_value(self.manager.next_location()))
 
 
 if __name__ == '__main__':

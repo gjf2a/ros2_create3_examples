@@ -7,6 +7,7 @@ import re
 import gtts
 import sys
 import pickle
+import sounddevice
 from playsound import playsound  
 
 class LLMConnector: #class used to create calls to Ollama API
@@ -39,6 +40,7 @@ def outputSpeech(text): #method for text to voice output, takes message as input
     tempSound.save("tempFile.mp3") #saves recording as local file
     playsound("tempFile.mp3") #outputs file as sound
     os.remove("tempFile.mp3") #deletes local file
+    print(text)
       
 def getSpeechInput(output): #outputs message, returns result of voice input, takes message as input
         outputSpeech(output) #calls outputSpeech to give prompt
@@ -68,7 +70,7 @@ class PackageDeliveryState(): #state in which robot delivers package from curren
         self.runner = runner
         #Sets up instance of object that is used to generate method calls through ollama API with phi3:3.8b as the model and a description of the floor and task as a system message
         message = getStateDescription(self.runner) + " Based on the following input, you are to identify a package and the destination the user would like the package to be delivered to. Output your findings in the following format **package** **destination**, replacing **package** with the name of the package and **destination** with the name of the destination, as identified from the input. Output only a single room and package in the specifed format with no extra characters, instructions, explanations, or labels."
-        self.methodCaller = LLMConnector("phi3:instruct", message)
+        self.methodCaller = LLMConnector("phi3:3.8b", message)
         #Sets up instance of object that is used to evaluate user verification through ollama API with phi3:3.8b as the model and a description of the floor and task as a system message
         self.classifier = LLMConnector("phi3:3.8b", "You are an expert classifier who determines if the prompt is a positive or negative response. If it is a positive response, output a 1. If it is a negative response or you are unsure, output a 0. Do not include any additional text, explanations, or notes.")
     
@@ -105,7 +107,7 @@ class DescriptionState(): #state in which llm provides description of state of s
         #creates instance of LLM Connector that sets up model to recieve a list of current locations and describe the sytem
         self.describer = LLMConnector("phi3:instruct", message)
     def action(self): #action outputs a description of the state of the system
-        outputSpeech(self.describer.prompt("")) #creates call to llm with all locations and outputs resulting description
+        outputSpeech(self.describer.prompt("Provide a short description.")) #creates call to llm with all locations and outputs resulting description
         return RoutingState(self.runner) #returns next state to main method, which is the routing state
 
 class QuestionState(): #state in which the user can ask a question for clarification
@@ -124,7 +126,7 @@ class NavigationState(): #state in which the robot moves from current location t
         self.runner = runner
         message = getStateDescription(self.runner) + " Based on the following input, you are to identify the destination the user would like the robot to navigate to. Output only the name of a single destination with no extra characters, instructions, explanations, or labels."
         #Sets up instance of object that is used to generate method calls through ollama API with phi3:3.8b as the model and a description of the floor and task as a system message
-        self.methodCaller = LLMConnector("phi3:instruct", message)
+        self.methodCaller = LLMConnector("phi3:3.8b", message)
         #Sets up instance of object that is used to evaluate user verification through ollama API with phi3:3.8b as the model 
         self.classifier = LLMConnector("phi3:3.8b", "You are an expert classifier who determines if the prompt is a positive or negative response. If it is a positive response, output a 1. If it is a negative response or you are unsure, output a 0. Do not include any additional text, explanations, or notes.")
     
@@ -195,13 +197,13 @@ def main(args=None):
     runner.st.start()
     runner.ht.start()
     systemState = RoutingState(runner) #sets first state of state machine to routing
-    os.system("ollama run phi3:3.8b /bye") #ensures ollama is open locally
+   # os.system("ollama run phi3:3.8b /bye") #ensures ollama is open locally
     with open(sys.argv[2] + "/" + sys.argv[2] + "_packages") as f:
         for package in f:
-            runner.at("at " + package)
+            runner.current_input = "at " + package
+            runner.at()
     while True: #continously runs actions of state and gets next state
         systemState = systemState.action() 
-    
     
 if __name__ == '__main__':
     main()
