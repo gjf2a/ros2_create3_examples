@@ -76,28 +76,24 @@ class PackageDeliveryState(): #state in which robot delivers package from curren
     
     def action(self): #action prompts for instructions and generates plan
         prompt = getSpeechInput("Please provide an item and desination.") #gets item and destination from user through speech input
-        for x in range(2): #loop to allow a second try with the same prompt if first is not succesful
-            for i in range(5): #allows four additional attempts to fine tune prompt before failing process
-                deliveryDetails = self.methodCaller.prompt(prompt) #recieves details in specifed format from llm
-                deliveryMethod = "deliver " + deliveryDetails #puts details of delivery into method call
-                parts = deliveryDetails.split()
-                if len(parts) == 2: 
-                    response = getSpeechInput("To confirm, would you like " + parts[0] + " to be delivered to " + parts[1] + "?") #Uses indices to parse string for item and destination, and gets speech to text response from user
-                    classification = self.classifier.prompt(response) #recieves a 0 or 1 as a response from llm- 1 indicates positive verification
-                    if '1' in classification: #user has verified method call
-                        self.runner.current_input = deliveryMethod
-                        self.runner.deliver() #executes method call
-                        x = 1 #breaks outer loop
-                        break #breaks loop because no further fine tuning is needed
-                    if i == 4: #process has failed
-                        outputSpeech("Unable to verify instructions")
-                        break #prevents useless prompt
+        for i in range(5): #allows four additional attempts to fine tune prompt before failing process
+            deliveryDetails = self.methodCaller.prompt(prompt) #recieves details in specifed format from llm
+            deliveryMethod = "deliver " + deliveryDetails #puts details of delivery into method call
+            parts = deliveryDetails.split() #seperates location and item
+            if len(parts) == 2 and parts[0] in self.runner.state.package_locations and parts[1] in self.runner.state.graph: #verifies that method call contains valid package and location
+                response = getSpeechInput("To confirm, would you like " + parts[0] + " to be delivered to " + parts[1] + "?") #verifies request using package and location
+                classification = self.classifier.prompt(response) #recieves a 0 or 1 as a response from llm- 1 indicates positive verification
+                if '1' in classification: #user has verified method call
+                    self.runner.current_input = deliveryMethod #sets method as runner's current input
+                    self.runner.deliver() #executes method call
+                    break #breaks loop because no further fine tuning is needed
+                elif i == 4: #user has not verified prompt and all attempts are used
+                    outputSpeech("Unable to verify instructions")
+                else: #user has not verified prompt, but attempts remain
                     newInfo = getSpeechInput("Please clarify your request") #gets clarification from user for fine tuning
                     prompt = prompt + newInfo #adds additional instructions to original prompt
-                elif x==1: #if this is the second attempt at running code, the process fails
-                    outputSpeech("Process failed")
-                else: # loops back to try again because there has only been one attempt with that prompt
-                    outputSpeech("Trying again")
+            else: #tries again with same prompt because the response from the llm was bad
+                outputSpeech("Trying again")
         return RoutingState(self.runner) #returns next state to main method, which is the routing state
 
 class DescriptionState(): #state in which llm provides description of state of system
@@ -132,28 +128,24 @@ class NavigationState(): #state in which the robot moves from current location t
     
     def action(self): #action gets location from user and generates plan for robot to travel to location
         prompt = getSpeechInput("Please provide a desination.") #gets item and destination from user through speech input
-        for x in range(2): #loop to allow a second try with the same prompt if first is not succesful
-            for i in range(5): #allows four additional attempts to fine tune prompt before failing process
-                navigationDetails = self.methodCaller.prompt(prompt) #recieves details in specifed format from llm
-                navigationMethod = "go " + navigationDetails #puts details of delivery into method call
-                parts = navigationDetails.split()
-                if len(parts) == 1: 
-                    response = getSpeechInput("To confirm, would you like the robot to navigate to " + parts[0] + "?") #Uses indices to parse string for item and destination, and gets speech to text response from user
-                    classification = self.classifier.prompt(response) #recieves a 0 or 1 as a response from llm- 1 indicates positive verification
-                    if '1' in classification: #user has verified method call
-                        self.runner.current_input = navigationMethod
-                        self.runner.go() #executes method call
-                        x = 1 #breaks outer loop
-                        break #breaks loop because no further fine tuning is needed
-                    if i == 4: #process has failed
-                        outputSpeech("Unable to verify instructions")
-                        break #prevents useless prompt
+        for i in range(5): #allows four additional attempts to fine tune prompt before failing process
+            navigationDetails = self.methodCaller.prompt(prompt) #recieves details in specifed format from llm
+            navigationMethod = "go " + navigationDetails #puts details of navigation into method call
+            parts = navigationDetails.split() #seperates location and item
+            if len(parts) == 1 and parts[0] in self.runner.state.graph: #verifies that method call contains valid location
+                response = getSpeechInput("To confirm, would you like the robot to navigate to" + parts[0] "?") #verifies request using location
+                classification = self.classifier.prompt(response) #recieves a 0 or 1 as a response from llm- 1 indicates positive verification
+                if '1' in classification: #user has verified method call
+                    self.runner.current_input = navigationMethod #sets method as runner's current input
+                    self.runner.deliver() #executes method call
+                    break #breaks loop because no further fine tuning is needed
+                elif i == 4: #user has not verified prompt and all attempts are used
+                    outputSpeech("Unable to verify instructions")
+                else: #user has not verified prompt, but attempts remain
                     newInfo = getSpeechInput("Please clarify your request") #gets clarification from user for fine tuning
                     prompt = prompt + newInfo #adds additional instructions to original prompt
-                elif x==1: #if this is the second attempt at running code, the process fails
-                    outputSpeech("Process failed")
-                else: # loops back to try again because there has only been one attempt with that prompt
-                    outputSpeech("Trying again")
+            else: #tries again with same prompt because the response from the llm was bad
+                outputSpeech("Trying again")
         return RoutingState(self.runner) #returns next state to main method, which is the routing state
 
 class RoutingState(): #state in which the system determines which state the user would like to access
