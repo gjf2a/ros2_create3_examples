@@ -6,7 +6,6 @@ import sys
 from runner import RemoteNode, drain_queue
 import rclpy
 from geometry_msgs.msg import Pose
-from irobot_create_msgs.msg import HazardDetectionVector
 
 
 def spin_thread(finished, node_maker):
