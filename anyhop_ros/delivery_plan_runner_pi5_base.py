@@ -131,6 +131,18 @@ class RobotMapRunner:
     def running_plan(self):
         return self.manager.plan_active()
 
+    def run_loop(self):
+        self.st.start()
+        self.ht.start()
+
+        while not self.running_plan():
+            self.show_plan_status()
+            self.odometry_update()
+            self.status_update()
+
+        self.ht.join()
+        self.st.join()
+
     def dispatch_command(self):
         if self.current_input == 'quit':
             self.finished.set()
@@ -209,9 +221,21 @@ class RobotMapRunner:
         else:
             print("wrong number of arguments")
 
-    def next_plan_step(self, tag):
-        self.cmd_queue.put(self.state.graph.node_value(self.manager.next_location()))
+    def show_plan_status(self):
+        if self.running_plan() and self.manager.check_step(self.state):
+            self.next_plan_step('check')
 
+    def odometry_update(self):
+        p = drain_queue(self.pos_queue)
+        if p:
+            self.state.at, _ = self.state.graph.closest_node(p.pose.pose.position.x, p.pose.pose.position.y)
+
+    def status_update(self):
+        s = drain_queue(self.status_queue)
+
+    def next_plan_step(self, tag):
+        if self.running_plan() and self.state.at != self.manager.next_location():
+            self.cmd_queue.put(self.state.graph.node_value(self.manager.next_location()))
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:

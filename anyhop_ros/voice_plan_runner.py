@@ -55,6 +55,7 @@ def getSpeechInput(output): #outputs message, returns result of voice input, tak
        # except: #error typically occurs from no input
        #     return getSpeechInput("waiting for input") #tries again
     return input(output)
+
 def getStateDescription(runner):
     description = "The following is a description of the destinations the robot can travel to " + runner.state.description
     if len(runner.state.package_locations) > 0:
@@ -86,6 +87,7 @@ class PackageDeliveryState(): #state in which robot delivers package from curren
                 if '1' in classification: #user has verified method call
                     self.runner.current_input = deliveryMethod #sets method as runner's current input
                     self.runner.deliver() #executes method call
+                    self.runner.run_loop() #runs loop to execute plan
                     break #breaks loop because no further fine tuning is needed
                 elif i == 4: #user has not verified prompt and all attempts are used
                     outputSpeech("Unable to verify instructions")
@@ -138,6 +140,7 @@ class NavigationState(): #state in which the robot moves from current location t
                 if '1' in classification: #user has verified method call
                     self.runner.current_input = navigationMethod #sets method as runner's current input
                     self.runner.go() #executes method call
+                    self.runner.run_loop() #runs loop to execute plan
                     break #breaks loop because no further fine tuning is needed
                 elif i == 4: #user has not verified prompt and all attempts are used
                     outputSpeech("Unable to verify instructions")
