@@ -36,27 +36,27 @@ class LLMConnector: #class used to create calls to Ollama API
             return None
 
 def outputSpeech(text): #method for text to voice output, takes message as input
-    tempSound = gtts.gTTS(text) #creates voice recording
-    tempSound.save("tempFile.mp3") #saves recording as local file
-    playsound("tempFile.mp3") #outputs file as sound
-    os.remove("tempFile.mp3") #deletes local file
+   # tempSound = gtts.gTTS(text) #creates voice recording
+   # tempSound.save("tempFile.mp3") #saves recording as local file
+   # playsound("tempFile.mp3") #outputs file as sound
+   # os.remove("tempFile.mp3") #deletes local file
     print(text)
       
 def getSpeechInput(output): #outputs message, returns result of voice input, takes message as input
-        outputSpeech(output) #calls outputSpeech to give prompt
-        r = sr.Recognizer() #creates instance on speech recognition object
-        mic = sr.Microphone() #creates object for microphone
-        try:
-            with mic as source: #sets microphone as source for speech input
-                audio = r.listen(source) #gets audio from input source and saves as variable
-            input = r.recognize_wit(audio, key="HGEODKAPMSH73UNQHATKFVWJZUZYKFUZ").lower() #gets transcription from wit.ai (meta) API and puts in lower case
-            print("Input: " + input) #prints recognized speech for testing purposes
-            return input
-        except: #error typically occurs from no input
-            return getSpeechInput("waiting for input") #tries again
-
+       # outputSpeech(output) #calls outputSpeech to give prompt
+       # r = sr.Recognizer() #creates instance on speech recognition object
+       # mic = sr.Microphone() #creates object for microphone
+       # try:
+       #     with mic as source: #sets microphone as source for speech input
+       #         audio = r.listen(source) #gets audio from input source and saves as variable
+       #     input = r.recognize_wit(audio, key="HGEODKAPMSH73UNQHATKFVWJZUZYKFUZ").lower() #gets transcription from wit.ai (meta) API and puts in lower case
+       #     print("Input: " + input) #prints recognized speech for testing purposes
+       #     return input
+       # except: #error typically occurs from no input
+       #     return getSpeechInput("waiting for input") #tries again
+    return input(output)
 def getStateDescription(runner):
-    description = "The following is a description of the enviroment the robot is operating in: " + runner.state.description
+    description = "The following is a description of the destinations the robot can travel to " + runner.state.description
     if len(runner.state.package_locations) > 0:
         description += " The following is a description of where each package is located. "
         for package in runner.state.package_locations:
@@ -99,7 +99,7 @@ class PackageDeliveryState(): #state in which robot delivers package from curren
 class DescriptionState(): #state in which llm provides description of state of system
     def __init__(self, runner): #initialized with runner
         self.runner = runner
-        message = getStateDescription(self.runner) + "Breifly describe where everything is located using common names. Do not provide additional explanations or speculation." 
+        message = getStateDescription(self.runner) + "Based only on the provided information, breifly describe where each package is currently located in plain english. Do not provide additional explanations or speculation. Do not make up or describe any packages that are not explicitly listed with a location in the description." 
         #creates instance of LLM Connector that sets up model to recieve a list of current locations and describe the sytem
         self.describer = LLMConnector("phi3:instruct", message)
     def action(self): #action outputs a description of the state of the system
@@ -120,7 +120,7 @@ class QuestionState(): #state in which the user can ask a question for clarifica
 class NavigationState(): #state in which the robot moves from current location to new location
     def __init__(self, runner): #initialized with state and runner
         self.runner = runner
-        message = getStateDescription(self.runner) + " Based on the following input, you are to identify the destination the user would like the robot to navigate to. Output only the name of a single destination with no extra characters, instructions, explanations, or labels."
+        message = getStateDescription(self.runner) + " Based on the following input, you are to identify the name of the destination the user would like the robot to navigate to and output it in the following format **destination** by replacing **destination** with the one identified. Output only the name of a single destination with no extra characters, instructions, explanations, or labels."
         #Sets up instance of object that is used to generate method calls through ollama API with phi3:3.8b as the model and a description of the floor and task as a system message
         self.methodCaller = LLMConnector("phi3:3.8b", message)
         #Sets up instance of object that is used to evaluate user verification through ollama API with phi3:3.8b as the model 
@@ -133,19 +133,21 @@ class NavigationState(): #state in which the robot moves from current location t
             navigationMethod = "go " + navigationDetails #puts details of navigation into method call
             parts = navigationDetails.split() #seperates location and item
             if len(parts) == 1 and parts[0] in self.runner.state.graph: #verifies that method call contains valid location
-                response = getSpeechInput("To confirm, would you like the robot to navigate to" + parts[0] "?") #verifies request using location
+                response = getSpeechInput("To confirm, would you like the robot to navigate to" + parts[0] + "?") #verifies request using location
                 classification = self.classifier.prompt(response) #recieves a 0 or 1 as a response from llm- 1 indicates positive verification
                 if '1' in classification: #user has verified method call
                     self.runner.current_input = navigationMethod #sets method as runner's current input
-                    self.runner.deliver() #executes method call
+                    self.runner.go() #executes method call
                     break #breaks loop because no further fine tuning is needed
                 elif i == 4: #user has not verified prompt and all attempts are used
                     outputSpeech("Unable to verify instructions")
                 else: #user has not verified prompt, but attempts remain
                     newInfo = getSpeechInput("Please clarify your request") #gets clarification from user for fine tuning
                     prompt = prompt + newInfo #adds additional instructions to original prompt
-            else: #tries again with same prompt because the response from the llm was bad
+            elif i<4: #tries again with same prompt because the response from the llm was bad
                 outputSpeech("Trying again")
+            else:
+                outputSpeech("Process Failed")
         return RoutingState(self.runner) #returns next state to main method, which is the routing state
 
 class RoutingState(): #state in which the system determines which state the user would like to access
@@ -166,19 +168,19 @@ class RoutingState(): #state in which the system determines which state the user
             classification = self.classifier.prompt(request) #prompts llm with user input
             try: 
                 num = int(classification) #tries to cast llm response to integer
+                if num == 0: #0 means the user wants to deliver a package
+                    return PackageDeliveryState(self.runner) #returns next state which is package delivery
+                elif num == 1: #1 means the user wants to navigate the robot
+                    return NavigationState(self.runner) #returns next state which is navigation
+                elif num == 2: #2 means the user want a description of the system
+                    return DescriptionState(self.runner) #returns next state which is description
+                elif num == 3: #3 means the user wants to ask a question 
+                    return QuestionState(self.runner) #returns next state which is question
+                elif num == 4: 
+                    return -1
+                else: outputSpeech("Please try again.")
             except: #catches any errors in case the response is in an improper format
                 outputSpeech("Please try again.")
-            if num == 0: #0 means the user wants to deliver a package
-                return PackageDeliveryState(self.runner) #returns next state which is package delivery
-            elif num == 1: #1 means the user wants to navigate the robot
-                return NavigationState(self.runner) #returns next state which is navigation
-            elif num == 2: #2 means the user want a description of the system
-                return DescriptionState(self.runner) #returns next state which is description
-            elif num == 3: #3 means the user wants to ask a question 
-                return QuestionState(self.runner) #returns next state which is question
-            elif num == 4: 
-                sys.exit()
-            else: outputSpeech("Please try again.")
 
 def main(args=None):
     with open(sys.argv[2] + "/" + sys.argv[2] + "_description") as f:
@@ -188,14 +190,20 @@ def main(args=None):
     runner = HTN.RobotMapRunner(sys.argv[2], sys.argv[1], map_data, map_description)
     runner.st.start()
     runner.ht.start()
+    runner.cmd_queue.put('reset')
     systemState = RoutingState(runner) #sets first state of state machine to routing
    # os.system("ollama run phi3:3.8b /bye") #ensures ollama is open locally
     with open(sys.argv[2] + "/" + sys.argv[2] + "_packages") as f:
         for package in f:
             runner.current_input = "at " + package
             runner.at()
-    while True: #continously runs actions of state and gets next state
-        systemState = systemState.action() 
-    
+    while systemState != -1: #continously runs actions of state and gets next state
+        systemState = systemState.action()
+    print("test")
+    runner.finished.set()
+    runner.ht.join()
+    runner.st.join()
+    outputSpeech("Bye")
+    sys.quit()
 if __name__ == '__main__':
     main()
