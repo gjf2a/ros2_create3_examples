@@ -129,7 +129,18 @@ class PathwayGrid:
                 prev_name = self.encode_point(px, py)
                 g.add_edge(prev_name, current_name)
         return g 
-                    
+
+    def centroid_of_unvisited(self) -> Tuple[float, float]:
+        num_unvisited = x_total = y_total = 0.0
+        for x in range(self.x_min_square, self.x_max_square + 1):
+            for y in range(self.y_min_square, self.y_max_square + 1):
+                if (x, y) not in self.visited:
+                    x_total += x
+                    y_total += y
+                    num_unvisited += 1
+        if num_unvisited > 0:
+            return x_total / num_unvisited, y_total / num_unvisited
+
                     
 def point_dir_char(start, end):
     xdiff = end[0] - start[0]
