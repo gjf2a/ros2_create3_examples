@@ -16,7 +16,6 @@ class MapperNode(runner.HdxNode):
         self.turning = False
         self.goal = (-1, 0)
         self.last_pose = None
-        self.reset_odom()
 
     def bump_clear(self):
         return self.bump is None
