@@ -204,7 +204,7 @@ class RemoteNode(HdxNode):
             'd': turn_twist(-math.pi/6)
         }
 
-        self.subscribe_odom(self.listener_callback)
+        self.subscribe_odom(self.odom_callback)
         self.subscribe_hazard(self.hazard_callback)
         self.subscribe_ir(self.ir_callback)
         self.create_timer(0.1, self.timer_callback)
@@ -213,7 +213,7 @@ class RemoteNode(HdxNode):
         self.bump_queue = bump_queue
         self.ir_queue = ir_queue
 
-    def listener_callback(self, msg: Odometry):
+    def odom_callback(self, msg: Odometry):
         self.pos_queue.put(msg.pose.pose)
 
     def hazard_callback(self, msg: HazardDetectionVector):
@@ -249,7 +249,7 @@ class GoToNode(HdxNode):
     def __init__(self, pos_queue: queue.Queue, cmd_queue: queue.Queue, status_queue: queue.Queue,
                  active: threading.Event, namespace: str = ""):
         super().__init__('go_to', namespace)
-        self.subscribe_odom(self.listener_callback)
+        self.subscribe_odom(self.odom_callback)
         self.pos_queue = pos_queue
         self.cmd_queue = cmd_queue
         self.status_queue = status_queue
@@ -257,7 +257,7 @@ class GoToNode(HdxNode):
         self.active.clear()
         self.goal_position = None
 
-    def listener_callback(self, pos: Odometry):
+    def odom_callback(self, pos: Odometry):
         self.pos_queue.put(pos)
         p = pos.pose.pose.position
         h = pos.pose.pose.orientation

@@ -2,14 +2,9 @@ import sys
 import math
 import runner
 import rclpy
+from nav_msgs.msg import Odometry
 
 from occupancy_grid import PathwayGrid
-
-# Concept
-#
-# Builds a map by recording positions regularly.
-# When it hits an obstacle, it aims for the most unknown area of the map.
-# Once it reaches the unknown area, it selects a new unknown area and keeps moving.
 
 
 class MapperNode(runner.HdxNode):
@@ -20,6 +15,8 @@ class MapperNode(runner.HdxNode):
         self.map = PathwayGrid()
         self.bump = None
         self.turning = False
+        self.goal = (-1, 0)
+        self.last_pose = None
 
     def bump_clear(self):
         return self.bump is None
@@ -27,8 +24,28 @@ class MapperNode(runner.HdxNode):
     def is_turning(self):
         return self.turning
 
+    def last_x_y(self):
+        p = self.last_pose.position
+        return p.x, p.y
+
+    def odom_callback(self, pos: Odometry):
+        self.last_pose = pos.pose.pose
+        x, y = self.last_x_y()
+        self.map.visit(x, y)
+        twist = None
+        if self.goal is not None:
+            twist = runner.twist_towards_goal(self.goal[0], self.goal[1], self.last_pose.position,
+                                              self.last_pose.orientation)
+        if twist:
+            self.publish_twist(twist)
+        else:
+            self.goal = self.map.centroid_of_unvisited()
+
     def bump_callback(self, msg):
         self.record_first_callback()
         if self.bump is None and not self.turning:
             self.bump = runner.find_bump_from(msg.detections)
+            if self.bump:
+                x, y = self.last_x_y()
+                self.goal = self.map.centroid_of_open_space(x, y, 4)
 
