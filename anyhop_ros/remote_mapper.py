@@ -53,7 +53,10 @@ class Runner:
 
     def main_loop(self):
         self.running.set()
-        self.robot_thread = threading.Thread(target=spin_thread_simple, args=(self.running, lambda: RemoteNode(self.cmd_queue, self.pos_queue, self.ir_queue, self.bump_queue, f"/{self.bot}")))
+        self.robot_thread = threading.Thread(target=spin_thread_simple,
+                                             args=(self.running, lambda: RemoteNode(self.cmd_queue, self.pos_queue,
+                                                                                    self.ir_queue, self.bump_queue,
+                                                                                    f"/{self.bot}")))
 
         self.info_window.addstr(0, 0, 'WASD to move; R to reset position; Q to quit')
         self.info_window.refresh()
