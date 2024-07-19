@@ -9,7 +9,7 @@ from queue import Queue
 
 import rclpy
 from geometry_msgs.msg import Twist, Pose
-from runner import RemoteNode, drain_queue, spin_thread_simple
+from runner import RemoteNode, drain_queue, spin_thread_simpler
 from occupancy_grid import PathwayGrid
 
 
@@ -53,7 +53,7 @@ class Runner:
 
     def main_loop(self):
         self.running.set()
-        self.robot_thread = threading.Thread(target=spin_thread_simple,
+        self.robot_thread = threading.Thread(target=spin_thread_simpler,
                                              args=(self.running, lambda: RemoteNode(self.cmd_queue, self.pos_queue,
                                                                                     self.ir_queue, self.bump_queue,
                                                                                     f"/{self.bot}")))
@@ -103,7 +103,10 @@ class Runner:
             self.info_window.refresh()
         else:
             self.cmd_queue.put(k)
-            self.last_cmd = f"Sent {k}: {self.last_time:.2f} s          "
+            if self.last_time is not None:
+                self.last_cmd = f"Sent {k}: {self.last_time:.2f} s          "
+            else:
+                self.last_cmd = f"Sent {k}: no timestamp"
 
     def handle_position(self):
         self.info_window.addstr(0, 0, 'WASD to move; R to reset position; Q to quit')

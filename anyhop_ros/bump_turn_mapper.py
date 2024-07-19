@@ -59,7 +59,7 @@ class Runner:
         self.last_pos = None
         self.map_queue = queue.Queue()
         self.running = threading.Event()
-        self.robot_thread = threading.Thread(target=runner.spin_thread_simple,
+        self.robot_thread = threading.Thread(target=runner.spin_thread_simpler,
                                              args=(self.running, lambda: MapperNode(self.map_queue, f"/{self.bot}")))
 
     def main_loop(self):

@@ -431,6 +431,17 @@ def spin_thread_simple(finished, node_maker):
     rclpy.shutdown()
 
 
+def spin_thread_simpler(running, node_maker):
+    rclpy.init(args=None)
+    executor = rclpy.get_global_executor()
+    node = node_maker()
+    executor.add_node(node)
+    while executor.context.ok() and running.is_set() and not node.quitting():
+        executor.spin_once()
+    node.reset()
+    rclpy.shutdown()
+
+
 def spin_thread_verbose(finished, ros_ready, node_maker):
     print("starting")
     rclpy.init(args=None)
