@@ -334,7 +334,7 @@ def run_single_node(node_maker):
     finished = threading.Event()
     ros_ready = threading.Event()
     
-    st = threading.Thread(target=spin_thread, args=(finished, ros_ready, node_maker))
+    st = threading.Thread(target=spin_thread_verbose, args=(finished, ros_ready, node_maker))
     it = threading.Thread(target=input_thread, args=(finished, ros_ready))
     it.start()
     st.start()
@@ -393,7 +393,7 @@ def run_vision_node(node_maker, cv_object):
     ros_ready = threading.Event()
 
     vt = threading.Thread(target=lambda cv: cv.loop(finished), args=(cv_object,))
-    st = threading.Thread(target=spin_thread, args=(finished, ros_ready, node_maker))
+    st = threading.Thread(target=spin_thread_verbose, args=(finished, ros_ready, node_maker))
     vt.start()
     st.start()
     vt.join()
@@ -408,6 +408,30 @@ def input_thread(finished, ros_ready):
 
 
 def spin_thread(finished, ros_ready, node_maker):
+    rclpy.init(args=None)
+    executor = rclpy.get_global_executor()
+    node = node_maker()
+    executor.add_node(node)
+    while executor.context.ok() and not finished.is_set() and not node.quitting():
+        executor.spin_once()
+        if node.ros_issuing_callbacks():
+            ros_ready.set()
+    node.reset()
+    rclpy.shutdown()
+
+
+def spin_thread_simple(finished, node_maker):
+    rclpy.init(args=None)
+    executor = rclpy.get_global_executor()
+    node = node_maker()
+    executor.add_node(node)
+    while executor.context.ok() and not finished.is_set() and not node.quitting():
+        executor.spin_once()
+    node.reset()
+    rclpy.shutdown()
+
+
+def spin_thread_verbose(finished, ros_ready, node_maker):
     print("starting")
     rclpy.init(args=None)
     print("init done")

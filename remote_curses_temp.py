@@ -3,23 +3,12 @@ import threading
 from queue import Queue
 import sys, time
 
-from runner import RemoteNode, drain_queue
+from runner import RemoteNode, drain_queue, spin_thread_simple
 import rclpy
 from geometry_msgs.msg import Pose
 
 from w1thermsensor import W1ThermSensor
 from w1thermsensor.units import Unit
-
-
-def spin_thread(finished, node_maker):
-    rclpy.init(args=None)
-    executor = rclpy.get_global_executor()
-    node = node_maker()
-    executor.add_node(node)
-    while executor.context.ok() and not finished.is_set() and not node.quitting():
-        executor.spin_once()
-    node.reset()
-    rclpy.shutdown()
 
 
 def main(stdscr):
@@ -34,7 +23,7 @@ def main(stdscr):
     temperature = W1ThermSensor()
     bump_list = []
     
-    st = threading.Thread(target=spin_thread, args=(finished, lambda: RemoteNode(cmd_queue, pos_queue, ir_queue, bump_queue, sys.argv[1])))
+    st = threading.Thread(target=spin_thread_simple, args=(finished, lambda: RemoteNode(cmd_queue, pos_queue, ir_queue, bump_queue, sys.argv[1])))
     st.start()
 
     temperature_filename = sys.argv[2]

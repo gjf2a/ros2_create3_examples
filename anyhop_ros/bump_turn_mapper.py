@@ -49,3 +49,4 @@ class MapperNode(runner.HdxNode):
                 x, y = self.last_x_y()
                 self.goal = self.map.centroid_of_open_space(x, y, 4)
 
+

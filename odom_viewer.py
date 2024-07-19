@@ -1,19 +1,7 @@
 import curses, threading, sys, queue
 import rclpy
 from nav_msgs.msg import Odometry
-from runner import HdxNode, drain_queue
-
-def spin_thread(finished, ros_ready, node_maker):
-    rclpy.init(args=None)
-    executor = rclpy.get_global_executor()
-    node = node_maker()
-    executor.add_node(node)
-    while executor.context.ok() and not finished.is_set() and not node.quitting():
-        executor.spin_once()
-        if node.ros_issuing_callbacks():
-            ros_ready.set()
-    node.reset()
-    rclpy.shutdown()
+from runner import HdxNode, drain_queue, spin_thread
 
 
 class OdometrySubscriber(HdxNode):
@@ -26,7 +14,7 @@ class OdometrySubscriber(HdxNode):
         self.pos_queue.put(msg)
 
 
-def printOdometry(stdscr, msg: Odometry):
+def print_odometry(stdscr, msg: Odometry):
     p = msg.pose.pose.position
     h = msg.pose.pose.orientation
     stdscr.addstr(2, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})")
@@ -62,7 +50,7 @@ def main(stdscr):
 
         p = drain_queue(pos_queue)
         if p:
-            printOdometry(stdscr, p)
+            print_odometry(stdscr, p)
         stdscr.refresh()
     finished.set()
     st.join()
