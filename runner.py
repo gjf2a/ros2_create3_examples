@@ -273,28 +273,16 @@ class GoToNode(HdxNode):
         """
         Given a 3D `Point` `p` representing position and a 4D `Quaternion`
         representing orientation, this function creates a `Twist` to move
-        the robot towards its goal.
-
-        It creates two fuzzy variables: `far` and `turn`. The basic logic is:
-        * if `far` and not `turn`, go forward (defuzzify to `linear.x`)
-        * if `turn`, rotate (defuzzify to `angular.z`)
+        the robot towards its goal using `twist_towards_goal()`.
         """
-        euler = quaternion2euler(h)
         x, y = self.goal_position
-        angle_disparity = angle_diff(math.atan2(y - p.y, x - p.x), euler[0])
-        distance = euclidean_distance(self.goal_position, (p.x, p.y))
-        if distance < GO_TO_DISTANCE_TOLERANCE:
+        t = twist_towards_goal(x, y, p, h)
+        if t:
+            self.publish_twist(t)
+            self.status_queue.put(f"linear.x: {t.linear.x:.2f} angular.z: {math.degrees(t.angular.z):.2f}")
+        else:
             self.active.clear()
             self.status_queue.put("Stopping")
-        else:
-            far = fuzzify_rising(distance, 0.0, 0.2)
-            turn = fuzzify_rising(abs(angle_disparity), 0.0, GO_TO_ANGLE_TOLERANCE * 4)
-            sign = 1 if angle_disparity >= 0 else -1
-            t = Twist()
-            t.linear.x = defuzzify(min(far, f_not(turn)), 0.0, 0.5)
-            t.angular.z = sign * defuzzify(turn, 0.0, math.pi / 4)
-            self.publish_twist(t)
-            self.status_queue.put(f"far: {far:.2f} turn: {'' if sign == 1 else '-'}{turn:.2f} linear.x: {t.linear.x:.2f} angular.z: {math.degrees(t.angular.z):.2f}")
 
     def process_command(self):
         msg = self.cmd_queue.get()
@@ -309,6 +297,37 @@ class GoToNode(HdxNode):
             self.status_queue.put("Reset complete")
         else:
             self.status_queue.put(f"Unrecognized command: {msg}")
+
+
+def twist_towards_goal(goal_x: float, goal_y: float, p: Point, h: Quaternion,
+                       dist_tolerance: float = GO_TO_DISTANCE_TOLERANCE,
+                       angle_tolerance: float = GO_TO_ANGLE_TOLERANCE) -> Twist:
+    """
+    Given a 3D `Point` `p` representing position and a 4D `Quaternion`
+    representing orientation, this function creates a `Twist` to move
+    the robot towards its goal.
+
+    It creates two fuzzy variables: `far` and `turn`. The basic logic is:
+    * if `far` and not `turn`, go forward (defuzzify to `linear.x`)
+    * if `turn`, rotate (defuzzify to `angular.z`)
+
+    If the robot is within `angle_tolerance` of the heading towards its
+    goal, then `turn` is `False`.
+
+    If the robot is within `dist_tolerance` of its goal, then `far` is
+    `False` and it returns `None`.
+    """
+    euler = quaternion2euler(h)
+    angle_disparity = angle_diff(math.atan2(goal_y - p.y, goal_x - p.x), euler[0])
+    distance = euclidean_distance((goal_x, goal_y), (p.x, p.y))
+    if distance >= dist_tolerance:
+        far = fuzzify_rising(distance, 0.0, 0.2)
+        turn = fuzzify_rising(abs(angle_disparity), 0.0, angle_tolerance * 4)
+        sign = 1 if angle_disparity >= 0 else -1
+        t = Twist()
+        t.linear.x = defuzzify(min(far, f_not(turn)), 0.0, 0.5)
+        t.angular.z = sign * defuzzify(turn, 0.0, math.pi / 4)
+        return t
 
 
 def run_single_node(node_maker):

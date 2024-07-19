@@ -7,9 +7,10 @@ from occupancy_grid import PathwayGrid
 
 # Concept
 #
-# Builds a map by recording positions regularly
-# When it hits an obstacle, it aims for the closest area of freespace
-# It periodically aims at the most unknown area of the map
+# Builds a map by recording positions regularly.
+# When it hits an obstacle, it aims for the most unknown area of the map.
+# Once it reaches the unknown area, it selects a new unknown area and keeps moving.
+
 
 class MapperNode(runner.HdxNode):
     def __init__(self, namespace: str):

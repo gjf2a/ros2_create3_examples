@@ -1,6 +1,10 @@
+from typing import Tuple
+import queue
+
 from pyhop_anytime import Graph
 
 START_CHAR = 65
+
 
 class PathwayGrid:
     def __init__(self, meters_per_square=1):
@@ -19,9 +23,14 @@ class PathwayGrid:
     def empty(self):
         return len(self.visited) == 0
 
+    def to_squares(self, x_meters: float, y_meters: float) -> Tuple[int, int]:
+        return int(x_meters / self.meters_per_square), int(y_meters / self.meters_per_square)
+
+    def to_meters(self, x: int | float, y: int | float) -> Tuple[float, float]:
+        return x * self.meters_per_square, y * self.meters_per_square
+
     def visit(self, x_meters, y_meters):
-        x = int(x_meters / self.meters_per_square)
-        y = int(y_meters / self.meters_per_square)
+        x, y = self.to_squares(x_meters, y_meters)
 
         if self.empty():
             self.x_min_square = self.x_max_square = x
@@ -140,6 +149,25 @@ class PathwayGrid:
                     num_unvisited += 1
         if num_unvisited > 0:
             return x_total / num_unvisited, y_total / num_unvisited
+
+    def centroid_of_open_space(self, x: float, y: float, max_distance: float) -> Tuple[float, float]:
+        x, y = self.to_squares(x, y)
+        graph = self.square_graph()
+        q = queue.Queue()
+        visited = set()
+        total_x = total_y = count = 0
+        q.put((x, y, 0))
+        while not q.empty():
+            x, y, distance = q.get()
+            if (x, y) not in visited:
+                visited.add((x, y))
+                total_x += x
+                total_y += y
+                count += 1
+                if distance < max_distance:
+                    for nx, ny in graph.edges[(x, y)]:
+                        q.put((nx, ny, distance + 1))
+        return self.to_meters(total_x / count, total_y / count)
 
                     
 def point_dir_char(start, end):
