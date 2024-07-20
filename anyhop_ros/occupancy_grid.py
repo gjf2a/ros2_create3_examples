@@ -83,6 +83,13 @@ class PathwayGrid:
         y_spot = y - self.y_min_square + START_CHAR
         return f"{chr(x_spot)}{chr(y_spot)}"
 
+    def decode_point(self, s: str) -> Tuple[int, int]:
+        assert len(s) == 2
+        if s == '$$':
+            return 0, 0
+        else:
+            return ord(s[0]) - START_CHAR + self.x_min_square, ord(s[1]) - START_CHAR + self.y_min_square
+
     def occupancy_str(self):
         if self.empty():
             return "No visits"
@@ -165,7 +172,8 @@ class PathwayGrid:
                 total_y += y
                 count += 1
                 if distance < max_distance:
-                    for nx, ny in graph.edges[(x, y)]:
+                    for neighbor in graph.edges[self.encode_point(x, y)]:
+                        nx, ny = self.decode_point(neighbor)
                         q.put((nx, ny, distance + 1))
         return self.to_meters(total_x / count, total_y / count)
 
