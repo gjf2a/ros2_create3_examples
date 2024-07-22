@@ -9,6 +9,7 @@ import sys
 import pickle
 import sounddevice
 from playsound import playsound  
+import time
 
 class LLMConnector: #class used to create calls to Ollama API
     def __init__(self, LLM, systemMessage): #takes the name and a system message as input and creates the dictionary needed to access the llm
@@ -25,7 +26,11 @@ class LLMConnector: #class used to create calls to Ollama API
 
     def prompt(self, promptMessage): #takes prompt as input, updates dictionary, and creates call to llm through ollama
         self.data["prompt"] = promptMessage 
+        start = time.perf_counter()
         response = requests.post(self.url, headers=self.headers, data=json.dumps(self.data)) #posts request to ollama API and recieves response
+        stop = time.perf_counter()
+        duration = stop-start
+        print("Recieved LLM response in " + duration + " seconds.")
         if response.status_code == 200: #code for success
             response_text = response.text
             response = json.loads(response.text)["response"] #extracts response from json object
@@ -67,7 +72,7 @@ def getStateDescription(runner):
     return description
 
 class PackageDeliveryState(): #state in which robot delivers package from current location to a designated destination
-    def __init__(self, runner): #initiated with runner
+    def __init__(self, runner, request): #initiated with runner
         self.runner = runner
         #Sets up instance of object that is used to generate method calls through ollama API with phi3:3.8b as the model and a description of the floor and task as a system message
         message = getStateDescription(self.runner) + " Based on the following input, you are to identify a package and the destination the user would like the package to be delivered to. Output your findings in the following format **package** **destination**, replacing **package** with the name of the package and **destination** with the name of the destination, as identified from the input. Output only a single room and package in the specifed format with no extra characters, instructions, explanations, or labels. Do not explain the selection or provide any additional information whatsoever. The output should consist of only a package and destination with no additional text."
@@ -76,7 +81,7 @@ class PackageDeliveryState(): #state in which robot delivers package from curren
         self.classifier = LLMConnector("phi3:3.8b", "You are an expert classifier who determines if the prompt is a positive or negative response. If it is a positive response, output a 1. If it is a negative response or you are unsure, output a 0. Do not include any additional text, explanations, or notes.")
     
     def action(self): #action prompts for instructions and generates plan
-        prompt = getSpeechInput("Please provide an item and desination.") #gets item and destination from user through speech input
+        prompt = self.request
         for i in range(5): #allows four additional attempts to fine tune prompt before failing process
             deliveryDetails = self.methodCaller.prompt(prompt).replace('*','')  #recieves details in specifed format from llm
             parts = deliveryDetails.split() #seperates location and item
@@ -91,7 +96,7 @@ class PackageDeliveryState(): #state in which robot delivers package from curren
                 elif i == 4: #user has not verified prompt and all attempts are used
                     outputSpeech("Unable to verify instructions")
                 else: #user has not verified prompt, but attempts remain
-                    newInfo = getSpeechInput("Please clarify your request") #gets clarification from user for fine tuning
+                    newInfo = getSpeechInput("Please clarify an item and destination") #gets clarification from user for fine tuning
                     prompt = prompt + newInfo #adds additional instructions to original prompt
             else: #tries again with same prompt because the response from the llm was bad
                 outputSpeech("Trying again")
@@ -100,7 +105,7 @@ class PackageDeliveryState(): #state in which robot delivers package from curren
 class DescriptionState(): #state in which llm provides description of state of system
     def __init__(self, runner): #initialized with runner
         self.runner = runner
-        message = getStateDescription(self.runner) + "Based only on the provided information, breifly describe where each package is currently located in plain english. Do not provide additional explanations or speculation. Do not make up or describe any packages that are not explicitly listed with a location in the description." 
+        message = getStateDescription(self.runner) + "Based only on the provided information, breifly describe where each package is currently located in plain english. Do not provide additional explanations or speculation. Do not make up or describe any packages that are not explicitly listed with a location in the prompt." 
         #creates instance of LLM Connector that sets up model to recieve a list of current locations and describe the sytem
         self.describer = LLMConnector("phi3:instruct", message)
     def action(self): #action outputs a description of the state of the system
@@ -108,43 +113,42 @@ class DescriptionState(): #state in which llm provides description of state of s
         return RoutingState(self.runner) #returns next state to main method, which is the routing state
 
 class QuestionState(): #state in which the user can ask a question for clarification
-    def __init__(self, runner): #initialized with state and planner
+    def __init__(self, runner, request): #initialized with state and planner
         self.runner = runner
         message = "You are part of an artificial intelligence system that controls the movement of an iRobot Create3 robot. The robot can be navigated between any two destinations and deliver packages. " + getStateDescription(self.runner) + " The following is a question asked by the user. Do your best to provide a breif response based on the previous information. "
         #creates local instance of connector that describes the premise of the system and sets the llm up to recieve a list of locations and a question to answer
         self.answerer = LLMConnector("phi3:instruct", message)
     def action(self): #action gets question from user and outputs response
-        question = getSpeechInput("What is your question?") #asks user for question and saves it
+        question = self.request
         outputSpeech(self.answerer.prompt("Question to be answered: " + question)) #prompts and gets response from llm, outputs reponse
         return RoutingState(self.runner) #returns next state to main method, which is the routing state
 
 class NavigationState(): #state in which the robot moves from current location to new location
-    def __init__(self, runner): #initialized with state and runner
+    def __init__(self, runner, request): #initialized with state and runner
         self.runner = runner
-        message = getStateDescription(self.runner) + " Based on the following input, you are to identify the name of the destination the user would like the robot to navigate to and output it in the following format **destination** by replacing **destination** with the one identified. Output only the name of a single destination with no extra characters, instructions, explanations, or labels."
+        message = getStateDescription(self.runner) + " Based on the following input, you are to identify the name of the destination the user would like the robot to navigate to and output it in the following format **destination** by replacing **destination** with the one identified. Output only the name of a single destination with no extra characters, instructions, explanations, or labels. Do not explain the selection or provide any additional information whatsoever. The output should consist of only a destination with no additional text."
         #Sets up instance of object that is used to generate method calls through ollama API with phi3:3.8b as the model and a description of the floor and task as a system message
         self.methodCaller = LLMConnector("phi3:3.8b", message)
         #Sets up instance of object that is used to evaluate user verification through ollama API with phi3:3.8b as the model 
         self.classifier = LLMConnector("phi3:3.8b", "You are an expert classifier who determines if the prompt is a positive or negative response. If it is a positive response, output a 1. If it is a negative response or you are unsure, output a 0. Do not include any additional text, explanations, or notes.")
     
     def action(self): #action gets location from user and generates plan for robot to travel to location
-        prompt = getSpeechInput("Please provide a desination.") #gets item and destination from user through speech input
+        prompt = self.runner
         for i in range(5): #allows four additional attempts to fine tune prompt before failing process
             navigationDetails = self.methodCaller.prompt(prompt) #recieves details in specifed format from llm
-            navigationMethod = "go " + navigationDetails #puts details of navigation into method call
             parts = navigationDetails.split() #seperates location and item
-            if len(parts) == 1 and parts[0] in self.runner.state.graph: #verifies that method call contains valid location
+            if len(parts) >= 1 and parts[0] in self.runner.state.graph: #verifies that method call contains valid location
                 response = getSpeechInput("To confirm, would you like the robot to navigate to" + parts[0] + "?") #verifies request using location
                 classification = self.classifier.prompt(response) #recieves a 0 or 1 as a response from llm- 1 indicates positive verification
                 if '1' in classification: #user has verified method call
-                    self.runner.current_input = navigationMethod #sets method as runner's current input
+                    self.runner.current_input = "go" + parts[0] #sets method as runner's current input
                     self.runner.go() #executes method call
                     self.runner.run_loop() #runs loop to execute plan
                     break #breaks loop because no further fine tuning is needed
                 elif i == 4: #user has not verified prompt and all attempts are used
                     outputSpeech("Unable to verify instructions")
                 else: #user has not verified prompt, but attempts remain
-                    newInfo = getSpeechInput("Please clarify your request") #gets clarification from user for fine tuning
+                    newInfo = getSpeechInput("Please clarify a destination") #gets clarification from user for fine tuning
                     prompt = prompt + newInfo #adds additional instructions to original prompt
             elif i<4: #tries again with same prompt because the response from the llm was bad
                 outputSpeech("Trying again")
@@ -166,18 +170,18 @@ class RoutingState(): #state in which the system determines which state the user
                                        """)
     def action(self): #action takes input from user and returns the desired state
         while True: #in loop so that it will try to determine the appropriate state again if the process fails
-            request = getSpeechInput("Would you like to deliver a package, navigate the robot, get a description of the system, ask a question, or quit the program?") #gives user options and recieves reponse
+            request = getSpeechInput("Ready for command") #gives user options and recieves reponse
             classification = self.classifier.prompt(request) #prompts llm with user input
             try: 
                 num = int(classification) #tries to cast llm response to integer
                 if num == 0: #0 means the user wants to deliver a package
-                    return PackageDeliveryState(self.runner) #returns next state which is package delivery
+                    return PackageDeliveryState(self.runner, request) #returns next state which is package delivery
                 elif num == 1: #1 means the user wants to navigate the robot
-                    return NavigationState(self.runner) #returns next state which is navigation
+                    return NavigationState(self.runner, request) #returns next state which is navigation
                 elif num == 2: #2 means the user want a description of the system
                     return DescriptionState(self.runner) #returns next state which is description
                 elif num == 3: #3 means the user wants to ask a question 
-                    return QuestionState(self.runner) #returns next state which is question
+                    return QuestionState(self.runner, request) #returns next state which is question
                 elif num == 4: 
                     return -1
                 else: outputSpeech("Please try again.")
