@@ -204,7 +204,7 @@ class RemoteNode(HdxNode):
             'd': turn_twist(-math.pi/6)
         }
 
-        self.subscribe_odom(self.listener_callback)
+        self.subscribe_odom(self.odom_callback)
         self.subscribe_hazard(self.hazard_callback)
         self.subscribe_ir(self.ir_callback)
         self.create_timer(0.1, self.timer_callback)
@@ -213,7 +213,7 @@ class RemoteNode(HdxNode):
         self.bump_queue = bump_queue
         self.ir_queue = ir_queue
 
-    def listener_callback(self, msg: Odometry):
+    def odom_callback(self, msg: Odometry):
         self.pos_queue.put(msg.pose.pose)
 
     def hazard_callback(self, msg: HazardDetectionVector):
@@ -249,7 +249,7 @@ class GoToNode(HdxNode):
     def __init__(self, pos_queue: queue.Queue, cmd_queue: queue.Queue, status_queue: queue.Queue,
                  active: threading.Event, namespace: str = ""):
         super().__init__('go_to', namespace)
-        self.subscribe_odom(self.listener_callback)
+        self.subscribe_odom(self.odom_callback)
         self.pos_queue = pos_queue
         self.cmd_queue = cmd_queue
         self.status_queue = status_queue
@@ -257,7 +257,7 @@ class GoToNode(HdxNode):
         self.active.clear()
         self.goal_position = None
 
-    def listener_callback(self, pos: Odometry):
+    def odom_callback(self, pos: Odometry):
         self.pos_queue.put(pos)
         p = pos.pose.pose.position
         h = pos.pose.pose.orientation
@@ -273,28 +273,16 @@ class GoToNode(HdxNode):
         """
         Given a 3D `Point` `p` representing position and a 4D `Quaternion`
         representing orientation, this function creates a `Twist` to move
-        the robot towards its goal.
-
-        It creates two fuzzy variables: `far` and `turn`. The basic logic is:
-        * if `far` and not `turn`, go forward (defuzzify to `linear.x`)
-        * if `turn`, rotate (defuzzify to `angular.z`)
+        the robot towards its goal using `twist_towards_goal()`.
         """
-        euler = quaternion2euler(h)
         x, y = self.goal_position
-        angle_disparity = angle_diff(math.atan2(y - p.y, x - p.x), euler[0])
-        distance = euclidean_distance(self.goal_position, (p.x, p.y))
-        if distance < GO_TO_DISTANCE_TOLERANCE:
+        t = twist_towards_goal(x, y, p, h)
+        if t:
+            self.publish_twist(t)
+            self.status_queue.put(f"linear.x: {t.linear.x:.2f} angular.z: {math.degrees(t.angular.z):.2f}")
+        else:
             self.active.clear()
             self.status_queue.put("Stopping")
-        else:
-            far = fuzzify_rising(distance, 0.0, 0.2)
-            turn = fuzzify_rising(abs(angle_disparity), 0.0, GO_TO_ANGLE_TOLERANCE * 4)
-            sign = 1 if angle_disparity >= 0 else -1
-            t = Twist()
-            t.linear.x = defuzzify(min(far, f_not(turn)), 0.0, 0.5)
-            t.angular.z = sign * defuzzify(turn, 0.0, math.pi / 4)
-            self.publish_twist(t)
-            self.status_queue.put(f"far: {far:.2f} turn: {'' if sign == 1 else '-'}{turn:.2f} linear.x: {t.linear.x:.2f} angular.z: {math.degrees(t.angular.z):.2f}")
 
     def process_command(self):
         msg = self.cmd_queue.get()
@@ -311,11 +299,42 @@ class GoToNode(HdxNode):
             self.status_queue.put(f"Unrecognized command: {msg}")
 
 
+def twist_towards_goal(goal_x: float, goal_y: float, p: Point, h: Quaternion,
+                       dist_tolerance: float = GO_TO_DISTANCE_TOLERANCE,
+                       angle_tolerance: float = GO_TO_ANGLE_TOLERANCE) -> Twist:
+    """
+    Given a 3D `Point` `p` representing position and a 4D `Quaternion`
+    representing orientation, this function creates a `Twist` to move
+    the robot towards its goal.
+
+    It creates two fuzzy variables: `far` and `turn`. The basic logic is:
+    * if `far` and not `turn`, go forward (defuzzify to `linear.x`)
+    * if `turn`, rotate (defuzzify to `angular.z`)
+
+    If the robot is within `angle_tolerance` of the heading towards its
+    goal, then `turn` is `False`.
+
+    If the robot is within `dist_tolerance` of its goal, then `far` is
+    `False` and it returns `None`.
+    """
+    euler = quaternion2euler(h)
+    angle_disparity = angle_diff(math.atan2(goal_y - p.y, goal_x - p.x), euler[0])
+    distance = euclidean_distance((goal_x, goal_y), (p.x, p.y))
+    if distance >= dist_tolerance:
+        far = fuzzify_rising(distance, 0.0, 0.2)
+        turn = fuzzify_rising(abs(angle_disparity), 0.0, angle_tolerance * 4)
+        sign = 1 if angle_disparity >= 0 else -1
+        t = Twist()
+        t.linear.x = defuzzify(min(far, f_not(turn)), 0.0, 0.5)
+        t.angular.z = sign * defuzzify(turn, 0.0, math.pi / 4)
+        return t
+
+
 def run_single_node(node_maker):
     finished = threading.Event()
     ros_ready = threading.Event()
     
-    st = threading.Thread(target=spin_thread, args=(finished, ros_ready, node_maker))
+    st = threading.Thread(target=spin_thread_verbose, args=(finished, ros_ready, node_maker))
     it = threading.Thread(target=input_thread, args=(finished, ros_ready))
     it.start()
     st.start()
@@ -374,7 +393,7 @@ def run_vision_node(node_maker, cv_object):
     ros_ready = threading.Event()
 
     vt = threading.Thread(target=lambda cv: cv.loop(finished), args=(cv_object,))
-    st = threading.Thread(target=spin_thread, args=(finished, ros_ready, node_maker))
+    st = threading.Thread(target=spin_thread_verbose, args=(finished, ros_ready, node_maker))
     vt.start()
     st.start()
     vt.join()
@@ -389,6 +408,41 @@ def input_thread(finished, ros_ready):
 
 
 def spin_thread(finished, ros_ready, node_maker):
+    rclpy.init(args=None)
+    executor = rclpy.get_global_executor()
+    node = node_maker()
+    executor.add_node(node)
+    while executor.context.ok() and not finished.is_set() and not node.quitting():
+        executor.spin_once()
+        if node.ros_issuing_callbacks():
+            ros_ready.set()
+    node.reset()
+    rclpy.shutdown()
+
+
+def spin_thread_simple(finished, node_maker):
+    rclpy.init(args=None)
+    executor = rclpy.get_global_executor()
+    node = node_maker()
+    executor.add_node(node)
+    while executor.context.ok() and not finished.is_set() and not node.quitting():
+        executor.spin_once()
+    node.reset()
+    rclpy.shutdown()
+
+
+def spin_thread_simpler(running, node_maker):
+    rclpy.init(args=None)
+    executor = rclpy.get_global_executor()
+    node = node_maker()
+    executor.add_node(node)
+    while executor.context.ok() and running.is_set() and not node.quitting():
+        executor.spin_once()
+    node.reset()
+    rclpy.shutdown()
+
+
+def spin_thread_verbose(finished, ros_ready, node_maker):
     print("starting")
     rclpy.init(args=None)
     print("init done")

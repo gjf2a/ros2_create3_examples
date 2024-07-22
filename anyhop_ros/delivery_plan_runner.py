@@ -1,23 +1,10 @@
 import pickle, curses, threading, queue, sys, copy
 import rclpy
 from nav_msgs.msg import Odometry
-from runner import GoToNode, drain_queue
+from runner import GoToNode, drain_queue, spin_thread
 from pyhop_anytime import State
 from pyhop_anytime_examples.graph_package_world import make_graph_planner
 import RPi.GPIO as GPIO
-
-
-def spin_thread(finished, ros_ready, node_maker):
-    rclpy.init(args=None)
-    executor = rclpy.get_global_executor()
-    node = node_maker()
-    executor.add_node(node)
-    while executor.context.ok() and not finished.is_set() and not node.quitting():
-        executor.spin_once()
-        if node.ros_issuing_callbacks():
-            ros_ready.set()
-    node.reset()
-    rclpy.shutdown()
 
 
 def print_odometry(stdscr, msg: Odometry):

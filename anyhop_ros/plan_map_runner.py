@@ -1,20 +1,7 @@
 import pickle, curses, threading, queue, sys
 import rclpy
 from nav_msgs.msg import Odometry
-from runner import GoToNode, drain_queue
-
-
-def spin_thread(finished, ros_ready, node_maker):
-    rclpy.init(args=None)
-    executor = rclpy.get_global_executor()
-    node = node_maker()
-    executor.add_node(node)
-    while executor.context.ok() and not finished.is_set() and not node.quitting():
-        executor.spin_once()
-        if node.ros_issuing_callbacks():
-            ros_ready.set()
-    node.reset()
-    rclpy.shutdown()
+from runner import GoToNode, drain_queue, spin_thread
 
 
 def print_odometry(stdscr, msg: Odometry):
