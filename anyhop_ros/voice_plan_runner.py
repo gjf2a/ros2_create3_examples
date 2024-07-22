@@ -70,7 +70,7 @@ class PackageDeliveryState(): #state in which robot delivers package from curren
     def __init__(self, runner): #initiated with runner
         self.runner = runner
         #Sets up instance of object that is used to generate method calls through ollama API with phi3:3.8b as the model and a description of the floor and task as a system message
-        message = getStateDescription(self.runner) + " Based on the following input, you are to identify a package and the destination the user would like the package to be delivered to. Output your findings in the following format **package** **destination**, replacing **package** with the name of the package and **destination** with the name of the destination, as identified from the input. Output only a single room and package in the specifed format with no extra characters, instructions, explanations, or labels."
+        message = getStateDescription(self.runner) + " Based on the following input, you are to identify a package and the destination the user would like the package to be delivered to. Output your findings in the following format **package** **destination**, replacing **package** with the name of the package and **destination** with the name of the destination, as identified from the input. Output only a single room and package in the specifed format with no extra characters, instructions, explanations, or labels. Do not explain the selection or provide any additional information whatsoever. The output should consist of only a package and destination with no additional text."
         self.methodCaller = LLMConnector("phi3:3.8b", message)
         #Sets up instance of object that is used to evaluate user verification through ollama API with phi3:3.8b as the model and a description of the floor and task as a system message
         self.classifier = LLMConnector("phi3:3.8b", "You are an expert classifier who determines if the prompt is a positive or negative response. If it is a positive response, output a 1. If it is a negative response or you are unsure, output a 0. Do not include any additional text, explanations, or notes.")
@@ -78,14 +78,13 @@ class PackageDeliveryState(): #state in which robot delivers package from curren
     def action(self): #action prompts for instructions and generates plan
         prompt = getSpeechInput("Please provide an item and desination.") #gets item and destination from user through speech input
         for i in range(5): #allows four additional attempts to fine tune prompt before failing process
-            deliveryDetails = self.methodCaller.prompt(prompt) #recieves details in specifed format from llm
-            deliveryMethod = "deliver " + deliveryDetails #puts details of delivery into method call
+            deliveryDetails = self.methodCaller.prompt(prompt).replace('*','')  #recieves details in specifed format from llm
             parts = deliveryDetails.split() #seperates location and item
-            if len(parts) == 2 and parts[0] in self.runner.state.package_locations and parts[1] in self.runner.state.graph: #verifies that method call contains valid package and location
+            if len(parts) >= 2 and parts[0] in self.runner.state.package_locations and parts[1] in self.runner.state.graph: #verifies that method call contains valid package and location
                 response = getSpeechInput("To confirm, would you like " + parts[0] + " to be delivered to " + parts[1] + "?") #verifies request using package and location
                 classification = self.classifier.prompt(response) #recieves a 0 or 1 as a response from llm- 1 indicates positive verification
                 if '1' in classification: #user has verified method call
-                    self.runner.current_input = deliveryMethod #sets method as runner's current input
+                    self.runner.current_input = "deliver " + parts[0] + " " + parts[1]  #sets method as runner's current input
                     self.runner.deliver() #executes method call
                     self.runner.run_loop() #runs loop to execute plan
                     break #breaks loop because no further fine tuning is needed

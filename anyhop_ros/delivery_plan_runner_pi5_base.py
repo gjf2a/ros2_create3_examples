@@ -132,16 +132,10 @@ class RobotMapRunner:
         return self.manager.plan_active()
 
     def run_loop(self):
-        self.st.start()
-        self.ht.start()
-
-        while not self.running_plan():
+        while self.running_plan():
             self.show_plan_status()
             self.odometry_update()
             self.status_update()
-
-        self.ht.join()
-        self.st.join()
 
     def dispatch_command(self):
         if self.current_input == 'quit':
