@@ -40,7 +40,7 @@ class MapperNode(runner.HdxNode):
         else:
             self.goal = self.map.centroid_of_unvisited()
 
-        self.map_str_queue.put((self.last_pose, self.map))
+        self.map_str_queue.put((self.goal, self.last_pose, self.map))
 
     def bump_callback(self, msg):
         self.record_first_callback()
@@ -86,14 +86,15 @@ class Runner:
     def handle_info(self):
         info = runner.drain_queue(self.map_queue)
         if info:
-            self.last_pos, self.last_map = info
+            goal, self.last_pos, self.last_map = info
             p = self.last_pos.position
             h = self.last_pos.orientation
             self.stdscr.addstr(1, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})        ")
             self.stdscr.addstr(2, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})        ")
+            self.stdscr.addstr(3, 0, f"Goal:        {goal}                                ")
             map_str = self.last_map.square_name_str()
             for i, line in enumerate(map_str.split()):
-                self.stdscr.addstr(3 + i, 0, line)
+                self.stdscr.addstr(5 + i, 0, line)
             self.stdscr.refresh()
 
 
