@@ -30,7 +30,7 @@ class LLMConnector: #class used to create calls to Ollama API
         response = requests.post(self.url, headers=self.headers, data=json.dumps(self.data)) #posts request to ollama API and recieves response
         stop = time.perf_counter()
         duration = stop-start
-        print("Recieved LLM response in " + duration + " seconds.")
+        print("Recieved LLM response in " + str(duration) + " seconds.")
         if response.status_code == 200: #code for success
             response_text = response.text
             response = json.loads(response.text)["response"] #extracts response from json object
@@ -74,6 +74,7 @@ def getStateDescription(runner):
 class PackageDeliveryState(): #state in which robot delivers package from current location to a designated destination
     def __init__(self, runner, request): #initiated with runner
         self.runner = runner
+        self.request= request
         #Sets up instance of object that is used to generate method calls through ollama API with phi3:3.8b as the model and a description of the floor and task as a system message
         message = getStateDescription(self.runner) + " Based on the following input, you are to identify a package and the destination the user would like the package to be delivered to. Output your findings in the following format **package** **destination**, replacing **package** with the name of the package and **destination** with the name of the destination, as identified from the input. Output only a single room and package in the specifed format with no extra characters, instructions, explanations, or labels. Do not explain the selection or provide any additional information whatsoever. The output should consist of only a package and destination with no additional text."
         self.methodCaller = LLMConnector("phi3:3.8b", message)
@@ -96,8 +97,7 @@ class PackageDeliveryState(): #state in which robot delivers package from curren
                 elif i == 4: #user has not verified prompt and all attempts are used
                     outputSpeech("Unable to verify instructions")
                 else: #user has not verified prompt, but attempts remain
-                    newInfo = getSpeechInput("Please clarify an item and destination") #gets clarification from user for fine tuning
-                    prompt = prompt + newInfo #adds additional instructions to original prompt
+                    newInfo = getSpeechInput("Please clarify an item and destination") #gets clarification from user for fi                    prompt = prompt + newInfo #adds additional instructions to original prompt
             else: #tries again with same prompt because the response from the llm was bad
                 outputSpeech("Trying again")
         return RoutingState(self.runner) #returns next state to main method, which is the routing state
@@ -115,6 +115,7 @@ class DescriptionState(): #state in which llm provides description of state of s
 class QuestionState(): #state in which the user can ask a question for clarification
     def __init__(self, runner, request): #initialized with state and planner
         self.runner = runner
+        self.request = request
         message = "You are part of an artificial intelligence system that controls the movement of an iRobot Create3 robot. The robot can be navigated between any two destinations and deliver packages. " + getStateDescription(self.runner) + " The following is a question asked by the user. Do your best to provide a breif response based on the previous information. "
         #creates local instance of connector that describes the premise of the system and sets the llm up to recieve a list of locations and a question to answer
         self.answerer = LLMConnector("phi3:instruct", message)
@@ -126,6 +127,7 @@ class QuestionState(): #state in which the user can ask a question for clarifica
 class NavigationState(): #state in which the robot moves from current location to new location
     def __init__(self, runner, request): #initialized with state and runner
         self.runner = runner
+        self.request = request
         message = getStateDescription(self.runner) + " Based on the following input, you are to identify the name of the destination the user would like the robot to navigate to and output it in the following format **destination** by replacing **destination** with the one identified. Output only the name of a single destination with no extra characters, instructions, explanations, or labels. Do not explain the selection or provide any additional information whatsoever. The output should consist of only a destination with no additional text."
         #Sets up instance of object that is used to generate method calls through ollama API with phi3:3.8b as the model and a description of the floor and task as a system message
         self.methodCaller = LLMConnector("phi3:3.8b", message)
@@ -133,7 +135,7 @@ class NavigationState(): #state in which the robot moves from current location t
         self.classifier = LLMConnector("phi3:3.8b", "You are an expert classifier who determines if the prompt is a positive or negative response. If it is a positive response, output a 1. If it is a negative response or you are unsure, output a 0. Do not include any additional text, explanations, or notes.")
     
     def action(self): #action gets location from user and generates plan for robot to travel to location
-        prompt = self.runner
+        prompt = self.request
         for i in range(5): #allows four additional attempts to fine tune prompt before failing process
             navigationDetails = self.methodCaller.prompt(prompt) #recieves details in specifed format from llm
             parts = navigationDetails.split() #seperates location and item
@@ -141,7 +143,7 @@ class NavigationState(): #state in which the robot moves from current location t
                 response = getSpeechInput("To confirm, would you like the robot to navigate to" + parts[0] + "?") #verifies request using location
                 classification = self.classifier.prompt(response) #recieves a 0 or 1 as a response from llm- 1 indicates positive verification
                 if '1' in classification: #user has verified method call
-                    self.runner.current_input = "go" + parts[0] #sets method as runner's current input
+                    self.runner.current_input = "go " + parts[0] #sets method as runner's current input
                     self.runner.go() #executes method call
                     self.runner.run_loop() #runs loop to execute plan
                     break #breaks loop because no further fine tuning is needed
