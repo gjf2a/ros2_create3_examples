@@ -179,9 +179,9 @@ class RoutingState(): #state in which the system determines which state the user
                                        Based on the following input, determine which of the abilities the user would like to access and output only the corresponding number, no text. 
                                        """)
     def action(self): #action takes input from user and returns the desired state
-        startTime = time.perf_counter()
         while True: #in loop so that it will try to determine the appropriate state again if the process fails
             request = getSpeechInput("Ready for command") #gives user options and recieves reponse
+            startTime = time.perf_counter()
             classification = self.classifier.prompt(request) #prompts llm with user input
             try: 
                 num = int(classification) #tries to cast llm response to integer
