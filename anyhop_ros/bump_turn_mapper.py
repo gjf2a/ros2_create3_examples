@@ -39,6 +39,8 @@ class MapperNode(runner.HdxNode):
             self.publish_twist(twist)
         else:
             self.goal = self.map.centroid_of_unvisited()
+            if self.goal is None:
+                self.goal = self.map.explore_random_neighbor(x, y)
 
         self.map_str_queue.put((self.goal, self.last_pose, self.map))
 

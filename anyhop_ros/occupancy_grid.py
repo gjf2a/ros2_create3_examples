@@ -1,7 +1,10 @@
+import random
 from typing import Tuple, List, Dict
-import queue
+import queue, math
 
 from pyhop_anytime import Graph
+
+import runner
 
 START_CHAR = 65
 
@@ -10,6 +13,7 @@ class PathwayGrid:
     def __init__(self, meters_per_square: float = 1):
         self.meters_per_square = meters_per_square
         self.visited = set()
+        self.blocked = set()
         self.pathway = []
 
         self.x_min_square = None
@@ -31,7 +35,29 @@ class PathwayGrid:
 
     def visit(self, x_meters: float, y_meters: float):
         x, y = self.to_squares(x_meters, y_meters)
+        self.update_min_max(x, y)
+        self.visited.add((x, y))
+        self.pathway.append((x, y))
 
+    def bump(self, x_meters: float, y_meters: float, orientation: float, bump: str):
+        orientation += runner.BUMP_HEADINGS[bump]
+        while orientation < -math.pi:
+            orientation += 2 * math.pi
+        while orientation > math.pi:
+            orientation -= 2 * math.pi
+        if -math.pi / 4 < orientation <= math.pi / 4:
+            x_meters += self.meters_per_square
+        elif math.pi / 4 < orientation <= 3 * math.pi / 4:
+            y_meters += self.meters_per_square
+        elif 3 * math.pi / 4 < orientation:
+            x_meters -= self.meters_per_square
+        else:
+            y_meters -= self.meters_per_square
+        x, y = self.to_squares(x_meters, y_meters)
+        self.update_min_max(x, y)
+        self.blocked.add((x, y))
+
+    def update_min_max(self, x: int, y: int):
         if self.empty():
             self.x_min_square = self.x_max_square = x
             self.y_min_square = self.y_max_square = y
@@ -40,9 +66,6 @@ class PathwayGrid:
             self.x_max_square = max(self.x_max_square, x)
             self.y_min_square = min(self.y_min_square, y)
             self.y_max_square = max(self.y_max_square, y)
-
-        self.visited.add((x, y))
-        self.pathway.append((x, y))
 
     def squares_wide(self) -> int:
         return self.x_max_square - self.x_min_square + 1
@@ -101,7 +124,7 @@ class PathwayGrid:
                     if point == (0, 0):
                         result += 'X'
                     else:
-                        result += '.' if point in self.visited else ' '
+                        result += '.' if point in self.visited else '#' if point in self.blocked else ' '
                 result += '\n'
             return result
 
@@ -129,6 +152,8 @@ class PathwayGrid:
                 for (x, y) in row:
                     if (x, y) in self.visited:
                         result += self.encode_point(x, y) + " "
+                    elif (x, y) in self.blocked:
+                        result += '## '
                     else:
                         result += '   '
                 result += '\n'
@@ -176,6 +201,18 @@ class PathwayGrid:
                         nx, ny = self.decode_point(neighbor)
                         q.put((nx, ny, distance + 1))
         return self.to_meters(total_x / count, total_y / count)
+
+    def explore_random_neighbor(self, x_meters: float, y_meters: float) -> Tuple[float, float]:
+        x, y = self.to_squares(x_meters, y_meters)
+        candidates = [(x + a, y + b) for (a, b) in [(0, 1), (1, 0), (-1, 0), (0, -1)]]
+        usable = [(a, b) for (a, b) in candidates if (a, b) not in self.blocked]
+        unvisited = [(a, b) for (a, b) in usable if (a, b) not in self.visited]
+        if len(unvisited) > 0:
+            a, b = random.choice(unvisited)
+            return self.to_meters(a, b)
+        elif len(usable) > 0:
+            a, b = random.choice(usable)
+            return self.to_meters(a, b)
 
                     
 def point_dir_char(start: Tuple[int, int], end: Tuple[int, int]) -> str:
