@@ -50,7 +50,7 @@ class MapperNode(runner.HdxNode):
             self.bump = runner.find_bump_from(msg.detections)
             if self.bump:
                 x, y = self.last_x_y()
-                self.goal = self.map.centroid_of_open_space(x, y, 4)
+                self.goal = self.map.explore_random_neighbor(x, y)
 
 
 class Runner:
