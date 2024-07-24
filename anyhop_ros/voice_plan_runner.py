@@ -10,6 +10,12 @@ import pickle
 import sounddevice
 from playsound import playsound  
 import time
+import datetime
+
+def writeToFile(fileName, line):
+    file = open(fileName, "a")
+    file.write("\n" + datetime.datetime.now() + ',' + line)
+    file.close()
 
 class LLMConnector: #class used to create calls to Ollama API
     def __init__(self, LLM, systemMessage): #takes the name and a system message as input and creates the dictionary needed to access the llm
@@ -29,12 +35,13 @@ class LLMConnector: #class used to create calls to Ollama API
         start = time.perf_counter()
         response = requests.post(self.url, headers=self.headers, data=json.dumps(self.data)) #posts request to ollama API and recieves response
         stop = time.perf_counter()
-        duration = stop-start
-        print("Recieved LLM response in " + str(duration) + " seconds.")
+        time = stop-start
         if response.status_code == 200: #code for success
             response_text = response.text
             response = json.loads(response.text)["response"] #extracts response from json object
             print("Response: " + response) # prints llm response for testing purposes
+            writeToFile("transcript.txt", "llm: " + response)
+            writeToFile("transcript.txt", "**Response recieved in " + time + " seconds**")
             return response
         else:
             print( "API Error:", response.status_code, response.text)
@@ -45,21 +52,23 @@ def outputSpeech(text): #method for text to voice output, takes message as input
    # tempSound.save("tempFile.mp3") #saves recording as local file
    # playsound("tempFile.mp3") #outputs file as sound
    # os.remove("tempFile.mp3") #deletes local file
+    writeToFile("transcript.txt", "system: " + text)
     print(text)
       
 def getSpeechInput(output): #outputs message, returns result of voice input, takes message as input
-       # outputSpeech(output) #calls outputSpeech to give prompt
-       # r = sr.Recognizer() #creates instance on speech recognition object
-       # mic = sr.Microphone() #creates object for microphone
-       # try:
-       #     with mic as source: #sets microphone as source for speech input
-       #         audio = r.listen(source) #gets audio from input source and saves as variable
-       #     input = r.recognize_wit(audio, key="HGEODKAPMSH73UNQHATKFVWJZUZYKFUZ").lower() #gets transcription from wit.ai (meta) API and puts in lower case
-       #     print("Input: " + input) #prints recognized speech for testing purposes
-       #     return input
-       # except: #error typically occurs from no input
-       #     return getSpeechInput("waiting for input") #tries again
-    return input(output)
+    # outputSpeech(output) #calls outputSpeech to give prompt
+    # r = sr.Recognizer() #creates instance on speech recognition object
+    # mic = sr.Microphone() #creates object for microphone
+    # try:
+    #     with mic as source: #sets microphone as source for speech input
+    #         audio = r.listen(source) #gets audio from input source and saves as variable
+    #     input = r.recognize_wit(audio, key="HGEODKAPMSH73UNQHATKFVWJZUZYKFUZ").lower() #gets transcription from wit.ai (meta) API and puts in lower case
+    #     print("Input: " + input) #prints recognized speech for testing purposes
+    # except: #error typically occurs from no input
+    #     return getSpeechInput("waiting for input") #tries again
+    input = input(output)
+    writeToFile("transcript.txt", "user: " + input)
+    return input
 
 def getStateDescription(runner):
     description = "The following is a description of the destinations the robot can travel to " + runner.state.description
@@ -83,7 +92,12 @@ class PackageDeliveryState(): #state in which robot delivers package from curren
         self.classifier = LLMConnector("phi3:3.8b", "You are an expert classifier who determines if the prompt is a positive or negative response. If it is a positive response, output a 1. If it is a negative response or you are unsure, output a 0. Do not include any additional text, explanations, or notes.")
     
     def action(self): #action prompts for instructions and generates plan
+        state = "delivery"
+        userRevisions = 0
+        SystemCorrections = 0
+        executed = False
         prompt = self.request
+        time = ""
         for i in range(5): #allows four additional attempts to fine tune prompt before failing process
             deliveryDetails = self.methodCaller.prompt(prompt).replace('*','')  #recieves details in specifed format from llm
             parts = deliveryDetails.split() #seperates location and item
@@ -94,14 +108,20 @@ class PackageDeliveryState(): #state in which robot delivers package from curren
                     self.runner.current_input = "deliver " + parts[0] + " " + parts[1]  #sets method as runner's current input
                     self.runner.deliver() #executes method call
                     self.runner.run_loop() #runs loop to execute plan
-                    print("Command executed in " + str(time.perf_counter()-self.startTime) + " seconds")
+                    time = str(time.perf_counter()-self.startTime)
+                    writeToFile("transcript.txt", "**Command executed in " + time + " seconds**")
+                    executed = True
                     break #breaks loop because no further fine tuning is needed
                 elif i == 4: #user has not verified prompt and all attempts are used
                     outputSpeech("Unable to verify instructions, process failed")
                 else: #user has not verified prompt, but attempts remain
-                    newInfo = getSpeechInput("Please clarify an item and destination") #gets clarification from user for fi                    prompt = prompt + newInfo #adds additional instructions to original prompt
+                    newInfo = getSpeechInput("Please clarify an item and destination") #gets clarification from user                  
+                    prompt = prompt + newInfo #adds additional instructions to original prompt
+                    userRevisions += 1
             else: #tries again with same prompt because the response from the llm was bad
+                SystemCorrections += 1
                 outputSpeech("Trying again")
+        writeToFile("log.txt", state + "," + userRevisions + "," + SystemCorrections + "," + executed + "," + time)
         return RoutingState(self.runner) #returns next state to main method, which is the routing state
 
 class DescriptionState(): #state in which llm provides description of state of system
@@ -112,8 +132,16 @@ class DescriptionState(): #state in which llm provides description of state of s
         #creates instance of LLM Connector that sets up model to recieve a list of current locations and describe the sytem
         self.describer = LLMConnector("phi3:instruct", message)
     def action(self): #action outputs a description of the state of the system
+        state = "description"
+        userRevisions = 0
+        SystemCorrections = 0
+        executed = True
+        prompt = self.request
+        time = ""
         outputSpeech(self.describer.prompt("Provide a short description.")) #creates call to llm with all locations and outputs resulting description
-        print("Command executed in " + str(time.perf_counter()-self.startTime) + " seconds")
+        time = str(time.perf_counter()-self.startTime)
+        writeToFile("transcript.txt", "**Command executed in " + time + " seconds**")
+        writeToFile("log.txt", state + "," + userRevisions + "," + SystemCorrections + "," + executed + "," + time)
         return RoutingState(self.runner) #returns next state to main method, which is the routing state
 
 class QuestionState(): #state in which the user can ask a question for clarification
@@ -125,9 +153,16 @@ class QuestionState(): #state in which the user can ask a question for clarifica
         #creates local instance of connector that describes the premise of the system and sets the llm up to recieve a list of locations and a question to answer
         self.answerer = LLMConnector("phi3:instruct", message)
     def action(self): #action gets question from user and outputs response
-        question = self.request
-        outputSpeech(self.answerer.prompt("Question to be answered: " + question)) #prompts and gets response from llm, outputs reponse
-        print("Command executed in " + str(time.perf_counter()-self.startTime) + " seconds")
+        state = "question"
+        userRevisions = 0
+        SystemCorrections = 0
+        executed = True
+        prompt = self.request
+        time = ""
+        outputSpeech(self.answerer.prompt("Question to be answered: " + self.request)) #prompts and gets response from llm, outputs reponse
+        time = str(time.perf_counter()-self.startTime)
+        writeToFile("transcript.txt", "**Command executed in " + time + " seconds**")
+        writeToFile("log.txt", state + "," + userRevisions + "," + SystemCorrections + "," + executed + "," + time)
         return RoutingState(self.runner) #returns next state to main method, which is the routing state
 
 class NavigationState(): #state in which the robot moves from current location to new location
@@ -142,6 +177,12 @@ class NavigationState(): #state in which the robot moves from current location t
         self.classifier = LLMConnector("phi3:3.8b", "You are an expert classifier who determines if the prompt is a positive or negative response. If it is a positive response, output a 1. If it is a negative response or you are unsure, output a 0. Do not include any additional text, explanations, or notes.")
     
     def action(self): #action gets location from user and generates plan for robot to travel to location
+        state = "navigation"
+        userRevisions = 0
+        SystemCorrections = 0
+        executed = False
+        prompt = self.request
+        time = ""
         prompt = self.request
         for i in range(5): #allows four additional attempts to fine tune prompt before failing process
             navigationDetails = self.methodCaller.prompt(prompt) #recieves details in specifed format from llm
@@ -153,17 +194,22 @@ class NavigationState(): #state in which the robot moves from current location t
                     self.runner.current_input = "go " + parts[0] #sets method as runner's current input
                     self.runner.go() #executes method call
                     self.runner.run_loop() #runs loop to execute plan
-                    print("Command executed in " + str(time.perf_counter()-self.startTime) + " seconds")
+                    executed = True
+                    time = str(time.perf_counter()-self.startTime)
+                    writeToFile("transcript.txt", "**Command executed in " + time + " seconds**")
                     break #breaks loop because no further fine tuning is needed
                 elif i == 4: #user has not verified prompt and all attempts are used
                     outputSpeech("Unable to verify instructions")
                 else: #user has not verified prompt, but attempts remain
                     newInfo = getSpeechInput("Please clarify a destination") #gets clarification from user for fine tuning
                     prompt = prompt + newInfo #adds additional instructions to original prompt
+                    userRevisions += 1
             elif i<4: #tries again with same prompt because the response from the llm was bad
                 outputSpeech("Trying again")
+                SystemCorrections += 1
             else:
                 outputSpeech("Process Failed")
+        writeToFile("log.txt", state + "," + userRevisions + "," + SystemCorrections + "," + executed + "," + time)
         return RoutingState(self.runner) #returns next state to main method, which is the routing state
 
 class RoutingState(): #state in which the system determines which state the user would like to access
