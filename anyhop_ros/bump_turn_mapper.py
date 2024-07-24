@@ -12,16 +12,11 @@ class MapperNode(runner.HdxNode):
         self.subscribe_hazard(self.bump_callback)
         self.subscribe_odom(self.odom_callback)
         self.map = PathwayGrid()
-        self.bump = None
-        self.turning = False
         self.goal = (-1, 0)
         self.last_pose = None
 
     def bump_clear(self):
         return self.bump is None
-
-    def is_turning(self):
-        return self.turning
 
     def last_x_y(self):
         p = self.last_pose.position
@@ -46,11 +41,10 @@ class MapperNode(runner.HdxNode):
 
     def bump_callback(self, msg):
         self.record_first_callback()
-        if self.bump is None and not self.turning:
-            self.bump = runner.find_bump_from(msg.detections)
-            if self.bump:
-                x, y = self.last_x_y()
-                self.goal = self.map.explore_random_neighbor(x, y)
+        bump = runner.find_bump_from(msg.detections)
+        if bump is not None:
+            x, y = self.last_x_y()
+            self.goal = self.map.centroid_of_open_space(x, y, 4)
 
 
 class Runner:
