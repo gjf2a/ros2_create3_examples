@@ -11,7 +11,7 @@ class MapperNode(runner.HdxNode):
         self.map_str_queue = map_str_queue
         self.subscribe_hazard(self.bump_callback)
         self.subscribe_odom(self.odom_callback)
-        self.map = PathwayGrid()
+        self.map = PathwayGrid(0.1)
         self.goal = (-1, 0)
         self.last_pose = None
 
@@ -21,6 +21,9 @@ class MapperNode(runner.HdxNode):
     def last_x_y(self):
         p = self.last_pose.position
         return p.x, p.y
+
+    def last_heading(self):
+        return runner.quaternion2euler(self.last_pose.orientation)[0]
 
     def odom_callback(self, pos: Odometry):
         self.last_pose = pos.pose.pose
@@ -44,6 +47,7 @@ class MapperNode(runner.HdxNode):
         bump = runner.find_bump_from(msg.detections)
         if bump is not None:
             x, y = self.last_x_y()
+            self.map.bump(x, y, self.last_heading(), bump)
             #self.goal = self.map.centroid_of_open_space(x, y, 4)
             self.goal = self.map.explore_random_neighbor(x, y)
 
@@ -84,15 +88,23 @@ class Runner:
         info = runner.drain_queue(self.map_queue)
         if info:
             goal, self.last_pos, self.last_map = info
+            graph = self.last_map.square_graph()
             p = self.last_pos.position
             h = self.last_pos.orientation
-            self.stdscr.addstr(1, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})        ")
-            self.stdscr.addstr(2, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})        ")
-            self.stdscr.addstr(3, 0, f"Goal:        {goal}                                ")
+            name, dist = graph.closest_node(p.x, p.y)
+            self.stdscr.addstr(1, 0, f"Position:    {name} ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})       ")
+            self.stdscr.addstr(2, 0, f"Goal:        {graph.closest_node(goal[0], goal[1])[0]} ({goal[0]:6.2f}, {goal[1]:6.2f}                      ")
+            self.stdscr.addstr(3, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})        ")
             map_str = self.last_map.square_name_str()
-            for i, line in enumerate(map_str.split()):
-                self.stdscr.addstr(5 + i, 0, line)
-            self.stdscr.refresh()
+            line_num = 6
+            for line in map_str.split('\n'):
+                self.stdscr.addstr(line_num, 0, line)
+                line_num += 1
+            occ_str = self.last_map.occupancy_str()
+            line_num += 1
+            for line in occ_str.split('\n'):
+                self.stdscr.addstr(line_num, 0, line)
+                line_num += 1
 
 
 def run_runner(stdscr):

@@ -7,6 +7,7 @@ if __name__ == '__main__':
         with open(sys.argv[1], 'rb') as f:
             g = pickle.load(f)
             g.rotate = True
+            print(g.meters_per_square)
             print(g.occupancy_str())
             print()
             print(g.path_str())

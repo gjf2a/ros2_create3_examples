@@ -124,7 +124,7 @@ class PathwayGrid:
                     if point == (0, 0):
                         result += 'X'
                     else:
-                        result += '.' if point in self.visited else '#' if point in self.blocked else ' '
+                        result += '#' if point in self.blocked else '.' if point in self.visited else ' '
                 result += '\n'
             return result
 
@@ -150,10 +150,10 @@ class PathwayGrid:
             points = self.inverted_grid_points() if self.rotate else self.console_grid_points()
             for row in points:
                 for (x, y) in row:
-                    if (x, y) in self.visited:
-                        result += self.encode_point(x, y) + " "
-                    elif (x, y) in self.blocked:
+                    if (x, y) in self.blocked:
                         result += '## '
+                    elif (x, y) in self.visited:
+                        result += self.encode_point(x, y) + " "
                     else:
                         result += '   '
                 result += '\n'
@@ -206,11 +206,12 @@ class PathwayGrid:
         x, y = self.to_squares(x_meters, y_meters)
         candidates = [(x + a, y + b) for (a, b) in [(0, 1), (1, 0), (-1, 0), (0, -1)]]
         usable = [(a, b) for (a, b) in candidates if (a, b) not in self.blocked]
-        unvisited = [(a, b) for (a, b) in usable if (a, b) not in self.visited]
-        if len(unvisited) > 0:
-            a, b = random.choice(unvisited)
-            return self.to_meters(a, b)
-        elif len(usable) > 0:
+        #unvisited = [(a, b) for (a, b) in usable if (a, b) not in self.visited]
+        #if len(unvisited) > 0:
+        #    a, b = random.choice(unvisited)
+        #    return self.to_meters(a, b)
+        #elif len(usable) > 0:
+        if len(usable) > 0:
             a, b = random.choice(usable)
             return self.to_meters(a, b)
 
