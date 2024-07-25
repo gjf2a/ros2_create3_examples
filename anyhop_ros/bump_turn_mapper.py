@@ -15,11 +15,11 @@ class MapperNode(runner.HdxNode):
         self.map = PathwayGrid(0.1)
         self.goal = (-1, 0)
         self.last_pose = None
-        self.last_heading = None
+        self.move_start_heading = None
 
     def assign_goal(self, goal_x, goal_y):
         x, y = self.last_x_y()
-        self.last_heading = math.atan2(goal_y - y, goal_x - x)
+        self.move_start_heading = math.atan2(goal_y - y, goal_x - x)
         self.goal = (goal_x, goal_y)
 
     def bump_clear(self):
@@ -43,7 +43,7 @@ class MapperNode(runner.HdxNode):
         if twist:
             self.publish_twist(twist)
         else:
-            self.assign_goal(x + math.cos(self.last_heading), y + math.sin(self.last_heading))
+            self.assign_goal(x + math.cos(self.move_start_heading), y + math.sin(self.move_start_heading))
 
         self.map_str_queue.put((self.goal, self.last_pose, self.map))
 
