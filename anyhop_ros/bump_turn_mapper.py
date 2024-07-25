@@ -53,7 +53,7 @@ class MapperNode(runner.HdxNode):
         if bump is not None:
             x, y = self.last_x_y()
             self.map.bump(x, y, self.last_heading(), bump)
-            new_direction = runner.normalize_angle(runner.discretish_norm(self.last_heading() + math.pi, math.pi, 3))
+            new_direction = runner.normalize_angle(runner.discretish_norm(self.last_heading() + math.pi, math.pi, 2))
             self.assign_goal(x + math.cos(new_direction), y + math.sin(new_direction))
 
 
@@ -98,7 +98,7 @@ class Runner:
             h = self.last_pos.orientation
             name, dist = graph.closest_node(p.x, p.y)
             self.stdscr.addstr(1, 0, f"Position:    {name} ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})       ")
-            self.stdscr.addstr(2, 0, f"Goal:        {graph.closest_node(goal[0], goal[1])[0]} ({goal[0]:6.2f}, {goal[1]:6.2f}                      ")
+            self.stdscr.addstr(2, 0, f"Goal:        {graph.closest_node(goal[0], goal[1])[0]} ({goal[0]:6.2f}, {goal[1]:6.2f})                      ")
             self.stdscr.addstr(3, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})        ")
             map_str = self.last_map.square_name_str()
             line_num = 6
