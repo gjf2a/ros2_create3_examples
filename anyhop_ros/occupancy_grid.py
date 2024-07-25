@@ -40,11 +40,8 @@ class PathwayGrid:
         self.pathway.append((x, y))
 
     def bump(self, x_meters: float, y_meters: float, orientation: float, bump: str):
-        orientation += runner.BUMP_HEADINGS[bump]
-        while orientation < -math.pi:
-            orientation += 2 * math.pi
-        while orientation > math.pi:
-            orientation -= 2 * math.pi
+        orientation = runner.normalize_angle(orientation + runner.BUMP_HEADINGS[bump])
+
         if -math.pi / 4 < orientation <= math.pi / 4:
             x_meters += self.meters_per_square
         elif math.pi / 4 < orientation <= 3 * math.pi / 4:

@@ -1,4 +1,4 @@
-import subprocess, time, threading, math, queue
+import subprocess, time, threading, math, queue, random
 import cv2
 from typing import Tuple, Iterable
 
@@ -58,6 +58,11 @@ def quaternion2euler(orientation: Quaternion) -> Tuple[float, float, float]:
     yaw = math.atan2(t3, t4)
 
     return roll, pitch, yaw
+
+
+def discretish_norm(center, radius, num_dice):
+    n = sum(random.random() * radius / num_dice for _ in range(num_dice))
+    return center + radius / 2 - n
 
 
 def angle_diff(angle1: float, angle2: float) -> float:

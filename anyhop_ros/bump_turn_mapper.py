@@ -1,3 +1,4 @@
+import math
 import sys, queue, threading, curses, pickle, datetime
 import runner
 from nav_msgs.msg import Odometry
@@ -14,6 +15,12 @@ class MapperNode(runner.HdxNode):
         self.map = PathwayGrid(0.1)
         self.goal = (-1, 0)
         self.last_pose = None
+        self.last_heading = None
+
+    def assign_goal(self, goal_x, goal_y):
+        x, y = self.last_x_y()
+        self.last_heading = math.atan2(goal_y - y, goal_x - x)
+        self.goal = (goal_x, goal_y)
 
     def bump_clear(self):
         return self.bump is None
@@ -36,9 +43,7 @@ class MapperNode(runner.HdxNode):
         if twist:
             self.publish_twist(twist)
         else:
-            self.goal = self.map.centroid_of_unvisited()
-            if self.goal is None:
-                self.goal = self.map.explore_random_neighbor(x, y)
+            self.assign_goal(x + math.cos(self.last_heading), y + math.sin(self.last_heading))
 
         self.map_str_queue.put((self.goal, self.last_pose, self.map))
 
@@ -48,8 +53,8 @@ class MapperNode(runner.HdxNode):
         if bump is not None:
             x, y = self.last_x_y()
             self.map.bump(x, y, self.last_heading(), bump)
-            #self.goal = self.map.centroid_of_open_space(x, y, 4)
-            self.goal = self.map.explore_random_neighbor(x, y)
+            new_direction = runner.normalize_angle(runner.discretish_norm(self.last_heading() + math.pi, math.pi, 3))
+            self.assign_goal(x + math.cos(new_direction), y + math.sin(new_direction))
 
 
 class Runner:
