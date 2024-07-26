@@ -21,7 +21,7 @@ class IrBumpTurnBot(runner.WheelMonitorNode):
             if self.bump_node.bump_clear():
                 if not self.ir_node.is_turning():
                     if self.ir_node.ir_clear():
-                        self.publisher.publish(runner.straight_twist(0.25))
+                        self.publisher.publish(runner.straight_twist(0.5))
                     elif self.wheels_stopped():
                         self.ir_node.start_turn_until_clear()
             elif self.wheels_stopped():
