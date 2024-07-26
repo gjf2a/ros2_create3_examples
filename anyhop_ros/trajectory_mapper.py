@@ -1,4 +1,4 @@
-import sys
+import sys, datetime
 import runner
 import trajectories
 import rclpy
@@ -44,4 +44,5 @@ if __name__ == '__main__':
 
     bot = TrajectoryMapper(f'/{sys.argv[1]}', ir_limit)
     runner.run_recursive_node(bot)
-    print(bot.map.all_points())
+    with open(f"map_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}", 'w') as file:
+        file.write(f"{bot.map.all_points()}\n")
