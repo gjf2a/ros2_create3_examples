@@ -19,8 +19,8 @@ class TrajectoryMapper(runner.WheelMonitorNode):
         self.map = trajectories.TrajectoryMap()
 
     def odom_callback(self, msg: Odometry):
-        x, y = msg.pose.pose
-        self.map.update(x, y)
+        p = msg.pose.pose.position
+        self.map.update(p.x, p.y)
         self.record_first_callback()
         if not self.bump_node.is_turning():
             if self.bump_node.bump_clear():
