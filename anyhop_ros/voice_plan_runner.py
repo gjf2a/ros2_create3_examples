@@ -11,6 +11,7 @@ import sounddevice
 from playsound import playsound  
 import time
 import datetime
+import speech_engine
 
 def writeToFile(fileName, line):
     file = open(fileName, "a")
@@ -48,25 +49,10 @@ class LLMConnector: #class used to create calls to Ollama API
             return None
 
 def outputSpeech(text): #method for text to voice output, takes message as input
-   # tempSound = gtts.gTTS(text) #creates voice recording
-   # tempSound.save("tempFile.mp3") #saves recording as local file
-   # playsound("tempFile.mp3") #outputs file as sound
-   # os.remove("tempFile.mp3") #deletes local file
-    writeToFile("transcript.txt", "system: " + text)
-    print(text)
+   speech_engine.pyttsSpeaker().outputSpeech(text)
       
 def getSpeechInput(output): #outputs message, returns result of voice input, takes message as input
-    # outputSpeech(output) #calls outputSpeech to give prompt
-    # r = sr.Recognizer() #creates instance on speech recognition object
-    # mic = sr.Microphone() #creates object for microphone
-    # try:
-    #     with mic as source: #sets microphone as source for speech input
-    #         audio = r.listen(source) #gets audio from input source and saves as variable
-    #     input = r.recognize_wit(audio, key="HGEODKAPMSH73UNQHATKFVWJZUZYKFUZ").lower() #gets transcription from wit.ai (meta) API and puts in lower case
-    #     print("Input: " + input) #prints recognized speech for testing purposes
-    # except: #error typically occurs from no input
-    #     return getSpeechInput("waiting for input") #tries again
-    input = input(output)
+    input = speech_engine.voskRecognizer().getInput(output)
     writeToFile("transcript.txt", "user: " + input)
     return input
 
@@ -226,6 +212,9 @@ class RoutingState(): #state in which the system determines which state the user
                                        """)
     def action(self): #action takes input from user and returns the desired state
         while True: #in loop so that it will try to determine the appropriate state again if the process fails
+            input = ""
+            while "robot" not in input:
+                input = getSpeechInput()
             request = getSpeechInput("Ready for command") #gives user options and recieves reponse
             startTime = time.perf_counter()
             classification = self.classifier.prompt(request) #prompts llm with user input
