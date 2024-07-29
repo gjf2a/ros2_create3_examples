@@ -7,10 +7,13 @@ from runner import RotateActionClient
 
 
 class BumpTurnNode(runner.HdxNode):
-    def __init__(self, namespace: str = "", avoid_angle=math.pi / 2):
+    def __init__(self, namespace: str = "", avoid_angle=math.pi/2,
+                 avoid_distribution_width=math.pi/4, avoid_random_vars=2):
         super().__init__('bump_turn_node', namespace)
         self.subscribe_hazard(self.bump_callback)
         self.avoid_angle = avoid_angle
+        self.avoid_distribution_width = avoid_distribution_width
+        self.avoid_random_vars = avoid_random_vars
         self.rotator = RotateActionClient(self.turn_finished_callback, namespace)
         self.turning = False
         self.bump = None
@@ -34,7 +37,7 @@ class BumpTurnNode(runner.HdxNode):
                 print(f"Detected {self.bump}")
             
     def start_turn(self):
-        goal = self.avoid_angle
+        goal = runner.discretish_norm(self.avoid_angle, self.avoid_distribution_width, self.avoid_random_vars)
         if 'left' in self.bump:
             goal *= -1
         self.rotator.send_goal(goal)
