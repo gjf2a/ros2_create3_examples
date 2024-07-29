@@ -14,7 +14,7 @@ import datetime
 
 def writeToFile(fileName, line):
     file = open(fileName, "a")
-    file.write("\n" + datetime.datetime.now() + ',' + line)
+    file.write("\n" + str(datetime.datetime.now()) + ',' + line)
     file.close()
 
 class LLMConnector: #class used to create calls to Ollama API
@@ -35,13 +35,13 @@ class LLMConnector: #class used to create calls to Ollama API
         start = time.perf_counter()
         response = requests.post(self.url, headers=self.headers, data=json.dumps(self.data)) #posts request to ollama API and recieves response
         stop = time.perf_counter()
-        time = stop-start
+        timer = stop-start
         if response.status_code == 200: #code for success
             response_text = response.text
             response = json.loads(response.text)["response"] #extracts response from json object
             print("Response: " + response) # prints llm response for testing purposes
             writeToFile("transcript.txt", "llm: " + response)
-            writeToFile("transcript.txt", "**Response recieved in " + time + " seconds**")
+            writeToFile("transcript.txt", "**Response recieved in " + str(timer) + " seconds**")
             return response
         else:
             print( "API Error:", response.status_code, response.text)
@@ -66,9 +66,9 @@ def getSpeechInput(output): #outputs message, returns result of voice input, tak
     #     print("Input: " + input) #prints recognized speech for testing purposes
     # except: #error typically occurs from no input
     #     return getSpeechInput("waiting for input") #tries again
-    input = input(output)
-    writeToFile("transcript.txt", "user: " + input)
-    return input
+    userInput = input(output)
+    writeToFile("transcript.txt", "user: " + userInput)
+    return userInput
 
 def getStateDescription(runner):
     description = "The following is a description of the destinations the robot can travel to " + runner.state.description
@@ -94,10 +94,10 @@ class PackageDeliveryState(): #state in which robot delivers package from curren
     def action(self): #action prompts for instructions and generates plan
         state = "delivery"
         userRevisions = 0
-        SystemCorrections = 0
+        systemCorrections = 0
         executed = False
         prompt = self.request
-        time = ""
+        timer = ""
         for i in range(5): #allows four additional attempts to fine tune prompt before failing process
             deliveryDetails = self.methodCaller.prompt(prompt).replace('*','')  #recieves details in specifed format from llm
             parts = deliveryDetails.split() #seperates location and item
@@ -108,8 +108,8 @@ class PackageDeliveryState(): #state in which robot delivers package from curren
                     self.runner.current_input = "deliver " + parts[0] + " " + parts[1]  #sets method as runner's current input
                     self.runner.deliver() #executes method call
                     self.runner.run_loop() #runs loop to execute plan
-                    time = str(time.perf_counter()-self.startTime)
-                    writeToFile("transcript.txt", "**Command executed in " + time + " seconds**")
+                    timer = str(time.perf_counter()-self.startTime)
+                    writeToFile("transcript.txt", "**Command executed in " + str(timer) + " seconds**")
                     executed = True
                     break #breaks loop because no further fine tuning is needed
                 elif i == 4: #user has not verified prompt and all attempts are used
@@ -121,7 +121,7 @@ class PackageDeliveryState(): #state in which robot delivers package from curren
             else: #tries again with same prompt because the response from the llm was bad
                 SystemCorrections += 1
                 outputSpeech("Trying again")
-        writeToFile("log.txt", state + "," + userRevisions + "," + SystemCorrections + "," + executed + "," + time)
+        writeToFile("log.txt", state + "," + str(userRevisions) + "," + str(systemCorrections) + "," + str(executed) + "," + str(timer))
         return RoutingState(self.runner) #returns next state to main method, which is the routing state
 
 class DescriptionState(): #state in which llm provides description of state of system
@@ -134,14 +134,14 @@ class DescriptionState(): #state in which llm provides description of state of s
     def action(self): #action outputs a description of the state of the system
         state = "description"
         userRevisions = 0
-        SystemCorrections = 0
+        systemCorrections = 0
         executed = True
         prompt = self.request
-        time = ""
+        timer = ""
         outputSpeech(self.describer.prompt("Provide a short description.")) #creates call to llm with all locations and outputs resulting description
-        time = str(time.perf_counter()-self.startTime)
-        writeToFile("transcript.txt", "**Command executed in " + time + " seconds**")
-        writeToFile("log.txt", state + "," + userRevisions + "," + SystemCorrections + "," + executed + "," + time)
+        timer = str(time.perf_counter()-self.startTime)
+        writeToFile("transcript.txt", "**Command executed in " + str(timer) + " seconds**")
+        writeToFile("log.txt", state + "," + str(userRevisions) + "," + str(systemCorrections) + "," + str(executed) + "," + str(timer))
         return RoutingState(self.runner) #returns next state to main method, which is the routing state
 
 class QuestionState(): #state in which the user can ask a question for clarification
@@ -155,14 +155,14 @@ class QuestionState(): #state in which the user can ask a question for clarifica
     def action(self): #action gets question from user and outputs response
         state = "question"
         userRevisions = 0
-        SystemCorrections = 0
+        systemCorrections = 0
         executed = True
         prompt = self.request
-        time = ""
+        timer = ""
         outputSpeech(self.answerer.prompt("Question to be answered: " + self.request)) #prompts and gets response from llm, outputs reponse
-        time = str(time.perf_counter()-self.startTime)
-        writeToFile("transcript.txt", "**Command executed in " + time + " seconds**")
-        writeToFile("log.txt", state + "," + userRevisions + "," + SystemCorrections + "," + executed + "," + time)
+        timer = str(time.perf_counter()-self.startTime)
+        writeToFile("transcript.txt", "**Command executed in " + str(timer) + " seconds**")
+        writeToFile("log.txt", state + "," + str(userRevisions) + "," + str(systemCorrections) + "," + str(executed) + "," + str(timer))
         return RoutingState(self.runner) #returns next state to main method, which is the routing state
 
 class NavigationState(): #state in which the robot moves from current location to new location
@@ -179,10 +179,10 @@ class NavigationState(): #state in which the robot moves from current location t
     def action(self): #action gets location from user and generates plan for robot to travel to location
         state = "navigation"
         userRevisions = 0
-        SystemCorrections = 0
+        systemCorrections = 0
         executed = False
         prompt = self.request
-        time = ""
+        timer = ""
         prompt = self.request
         for i in range(5): #allows four additional attempts to fine tune prompt before failing process
             navigationDetails = self.methodCaller.prompt(prompt) #recieves details in specifed format from llm
@@ -195,8 +195,8 @@ class NavigationState(): #state in which the robot moves from current location t
                     self.runner.go() #executes method call
                     self.runner.run_loop() #runs loop to execute plan
                     executed = True
-                    time = str(time.perf_counter()-self.startTime)
-                    writeToFile("transcript.txt", "**Command executed in " + time + " seconds**")
+                    timer = str(time.perf_counter()-self.startTime)
+                    writeToFile("transcript.txt", "**Command executed in " + str(timer) + " seconds**")
                     break #breaks loop because no further fine tuning is needed
                 elif i == 4: #user has not verified prompt and all attempts are used
                     outputSpeech("Unable to verify instructions")
@@ -209,7 +209,7 @@ class NavigationState(): #state in which the robot moves from current location t
                 SystemCorrections += 1
             else:
                 outputSpeech("Process Failed")
-        writeToFile("log.txt", state + "," + userRevisions + "," + SystemCorrections + "," + executed + "," + time)
+        writeToFile("log.txt", state + "," + str(userRevisions) + "," + str(systemCorrections) + "," + str(executed) + "," + str(timer))
         return RoutingState(self.runner) #returns next state to main method, which is the routing state
 
 class RoutingState(): #state in which the system determines which state the user would like to access
