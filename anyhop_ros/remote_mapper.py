@@ -7,13 +7,9 @@ from curses_vision_demo import video_capture, display_frame
 
 from queue import Queue
 
-import rclpy
 from geometry_msgs.msg import Twist, Pose
 from runner import RemoteNode, drain_queue, spin_thread_simpler
 from occupancy_grid import PathwayGrid
-
-
-CLOSE_THRESHOLD = 0.5
 
 
 def reset_pos(bot):
@@ -33,7 +29,7 @@ def my_raw_input(stdscr, row, col, prompt_string):
 
 class Runner:
     def __init__(self, stdscr):
-        self.map = PathwayGrid()
+        self.map = PathwayGrid(0.2)
         self.bot = sys.argv[1]
 
         self.height, self.width = stdscr.getmaxyx()
