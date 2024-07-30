@@ -2,10 +2,11 @@ import vosk
 import pyaudio
 import json
 import pyttsx3
+import sounddevice
 
 class voskRecognizer():
     def __init__(self):
-        model_path = "/Users/jacobcollier-tenison/Downloads/vosk-model-small-en-us-0.15"
+        model_path = "/home/student/vosk-model-small-en-us-0.15"
         model = vosk.Model(model_path)
         self.rec = vosk.KaldiRecognizer(model, 16000)
         self.p = pyaudio.PyAudio()
@@ -31,6 +32,7 @@ class pyttsSpeaker():
         # Set properties (optional)
         self.speaker.setProperty('rate', 150)  # Speed of speech (words per minute)
         self.speaker.setProperty('volume', 1.0)  # Volume (0.0 to 1.0)
+        self.speaker.setProperty('voice', 'English (America)')
     def outputSpeech(self, text):
         self.speaker.say(text) # Convert text to speech and play it
         self.speaker.runAndWait() # Wait for the speech to finish
@@ -38,11 +40,3 @@ class pyttsSpeaker():
 if __name__ == '__main__':
     speechRecognizer = voskRecognizer()
     print(speechRecognizer.getInput("Ready for command"))
-    # engine = pyttsx3.init()
-    # voices = engine.getProperty('voices')
-    # for voice in voices:
-    #     print(voice, voice.id)
-    #     engine.setProperty('voice', voice.id)
-    #     engine.say("Hello World!")
-    #     engine.runAndWait()
-    #     engine.stop()

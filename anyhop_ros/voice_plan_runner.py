@@ -122,7 +122,6 @@ class DescriptionState(): #state in which llm provides description of state of s
         userRevisions = 0
         systemCorrections = 0
         executed = True
-        prompt = self.request
         timer = ""
         outputSpeech(self.describer.prompt("Provide a short description.")) #creates call to llm with all locations and outputs resulting description
         timer = str(time.perf_counter()-self.startTime)
@@ -214,7 +213,7 @@ class RoutingState(): #state in which the system determines which state the user
         while True: #in loop so that it will try to determine the appropriate state again if the process fails
             input = ""
             while "robot" not in input:
-                input = getSpeechInput()
+                input = getSpeechInput('test')
             request = getSpeechInput("Ready for command") #gives user options and recieves reponse
             startTime = time.perf_counter()
             classification = self.classifier.prompt(request) #prompts llm with user input
@@ -249,6 +248,7 @@ def main(args=None):
         for package in f:
             runner.current_input = "at " + package
             runner.at()
+    outputSpeech("I am alive")
     while systemState != -1: #continously runs actions of state and gets next state
         systemState = systemState.action()
     runner.finished.set()
