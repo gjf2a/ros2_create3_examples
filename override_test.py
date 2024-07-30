@@ -4,9 +4,10 @@ import runner
 import sys
 
 
-class Overridden(bump_turn.BumpTurnNode):
+class Overridden(bump_turn.BumpTurnBot):
     def __init__(self, namespace):
         super().__init__(namespace)
+        print("init!!!")
 
     def timer_callback(self):
         super().timer_callback()
