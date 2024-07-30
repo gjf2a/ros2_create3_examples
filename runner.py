@@ -234,7 +234,17 @@ class RemoteNode(HdxNode):
         if msg is not None and msg in self.commands:
             self.publish_twist(self.commands[msg])
             # Send an echo so the sender knows the publish happened.
-            #self.pos_queue.put(msg) 
+            #self.pos_queue.put(msg)
+
+
+class RemoteWandererNode(RemoteNode):
+    """
+    Variant of RemoteNode that can be commanded to wander autonomously.
+    """
+    def __init__(self, cmd_queue, pos_queue, ir_queue, bump_queue, namespace: str = ""):
+        super().__init__(cmd_queue, pos_queue, ir_queue, bump_queue, namespace)
+
+    ### VERY INCOMPLETE
 
 
 GO_TO_ANGLE_TOLERANCE = math.pi / 32
@@ -440,6 +450,17 @@ def spin_thread_simpler(running, node_maker):
     executor = rclpy.get_global_executor()
     node = node_maker()
     executor.add_node(node)
+    while executor.context.ok() and running.is_set() and not node.quitting():
+        executor.spin_once()
+    node.reset()
+    rclpy.shutdown()
+
+
+def spin_thread_recursive_node(running, node_maker):
+    rclpy.init(args=None)
+    executor = rclpy.get_global_executor()
+    node = node_maker()
+    node.add_self_recursive(executor)
     while executor.context.ok() and running.is_set() and not node.quitting():
         executor.spin_once()
     node.reset()
