@@ -88,7 +88,7 @@ class PackageDeliveryState(): #state in which robot delivers package from curren
             deliveryDetails = self.methodCaller.prompt(prompt).replace('*','')  #recieves details in specifed format from llm
             parts = deliveryDetails.split() #seperates location and item
             if len(parts) >= 2 and parts[0] in self.runner.state.package_locations and parts[1] in self.runner.state.graph: #verifies that method call contains valid package and location
-                response = getSpeechInput("To confirm, would you like " + parts[0] + " to be delivered to " + parts[1] + "?") #verifies request using package and location
+                response = getSpeechInput("To confirm, would you like " + parts[0] + " to be delivered to " + self.runner.state.aliases[parts[1]] + "?") #verifies request using package and location
                 classification = self.classifier.prompt(response) #recieves a 0 or 1 as a response from llm- 1 indicates positive verification
                 if '1' in classification: #user has verified method call
                     self.runner.current_input = "deliver " + parts[0] + " " + parts[1]  #sets method as runner's current input
@@ -173,7 +173,7 @@ class NavigationState(): #state in which the robot moves from current location t
             navigationDetails = self.methodCaller.prompt(prompt) #recieves details in specifed format from llm
             parts = navigationDetails.split() #seperates location and item
             if len(parts) >= 1 and parts[0] in self.runner.state.graph: #verifies that method call contains valid location
-                response = getSpeechInput("To confirm, would you like the robot to navigate to" + parts[0] + "?") #verifies request using location
+                response = getSpeechInput("To confirm, would you like the robot to navigate to" + self.runner.state.aliases[parts[0]] + "?") #verifies request using location
                 classification = self.classifier.prompt(response) #recieves a 0 or 1 as a response from llm- 1 indicates positive verification
                 if '1' in classification: #user has verified method call
                     self.runner.current_input = "go " + parts[0] #sets method as runner's current input
@@ -238,6 +238,11 @@ def main(args=None):
         map_description = f.read()
     with open(sys.argv[2] + "/" + sys.argv[2] + "_map", 'rb') as f:
         map_data = pickle.load(f)
+    aliases = dict()
+    with open(sys.argv[2] + "/" + sys.argv[2] + "_aliases") as f:
+        lines = f.readlines()
+        for i in range(0, len(lines)-1, 2):
+            aliases[lines[i]] = lines[i+1]
     runner = HTN.RobotMapRunner(sys.argv[2], sys.argv[1], map_data, map_description)
     runner.st.start()
     runner.ht.start()

@@ -88,9 +88,10 @@ def holding_thread(finished, holding):
 
 
 class RobotMapRunner:
-    def __init__(self, filename, robot, map_data, map_description):
+    def __init__(self, filename, robot, map_data, map_description, aliases):
         self.state = State(filename)
         self.state.description = map_description
+        self.state.aliases = aliases
         self.state.graph = map_data.square_graph()
         self.state.at = '$$'
         self.state.capacity = 1
