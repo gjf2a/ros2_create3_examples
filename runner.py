@@ -244,7 +244,16 @@ class RemoteWandererNode(RemoteNode):
     def __init__(self, cmd_queue, pos_queue, ir_queue, bump_queue, namespace: str = ""):
         super().__init__(cmd_queue, pos_queue, ir_queue, bump_queue, namespace)
 
-    ### VERY INCOMPLETE
+    def timer_callback(self):
+        self.pos_queue.put(self.elapsed_time())
+        msg = drain_queue(self.cmd_queue)
+        if msg is not None:
+            if msg in self.commands:
+                # TODO: Disable wandering node
+                self.publish_twist(self.commands[msg])
+            elif msg == 'f':
+                # TODO: Set the robot Free. Enable wandering node.
+                pass
 
 
 GO_TO_ANGLE_TOLERANCE = math.pi / 32
