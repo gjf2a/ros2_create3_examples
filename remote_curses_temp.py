@@ -1,3 +1,6 @@
+# Before running this program, type the following command:
+# sudo chmod 666 /dev/video0
+
 import threading, curses
 from queue import Queue
 import sys, time
@@ -15,6 +18,7 @@ from w1thermsensor.units import Unit
 def main(stdscr):
     curses.curs_set(0)
     stdscr.clear()
+    stdscr.nodelay(True)
 
     height, width = stdscr.getmaxyx()
     info_window = curses.newwin(10, width, 0, 0)
