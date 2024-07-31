@@ -34,7 +34,8 @@ def main(stdscr):
     curs_set(0)
     stdscr.clear()
 
-    finished = threading.Event()
+    running = threading.Event()
+    running.set()
     cmd_queue = Queue()
     pos_queue = Queue()
     bump_queue = Queue()
@@ -42,8 +43,8 @@ def main(stdscr):
     bump_list = []
 
     st = threading.Thread(target=runner.spin_thread_recursive_node,
-                          args=(finished, lambda: RemoteWandererNode(cmd_queue, pos_queue, ir_queue, bump_queue,
-                                                                     sys.argv[1])))
+                          args=(running, lambda: RemoteWandererNode(cmd_queue, pos_queue, ir_queue, bump_queue,
+                                                                    sys.argv[1])))
     st.start()
 
     stdscr.addstr(1, 0, 'WASD to move; F to Freely Wander; Q to quit')
@@ -80,7 +81,7 @@ def main(stdscr):
             stdscr.addstr(8, 0, f"{bump_list}")
         stdscr.refresh()
 
-    finished.set()
+    running.clear()
     st.join()
 
 
