@@ -1,7 +1,7 @@
 import runner
 import ir_bump_turn_odom
 from geometry_msgs.msg import Pose
-from curses import wrapper, curs_set
+import curses
 import threading
 from queue import Queue
 import sys
@@ -31,7 +31,7 @@ class RemoteWandererNode(runner.RemoteNode):
 
 
 def main(stdscr):
-    curs_set(0)
+    curses.curs_set(0)
     stdscr.clear()
 
     running = threading.Event()
@@ -47,17 +47,21 @@ def main(stdscr):
                                                                     sys.argv[1])))
     st.start()
 
+    stdscr.nodelay(True)
     stdscr.addstr(1, 0, 'WASD to move; F to Freely Wander; Q to quit')
     stdscr.refresh()
 
     loops = 0
 
-    while True:
-        k = stdscr.getkey()
-        if k == 'q':
-            break
-        elif not cmd_queue.full():
-            cmd_queue.put(k)
+    while running.is_set():
+        try:
+            k = stdscr.getkey()
+            if k == 'q':
+                break
+            elif not cmd_queue.full():
+                cmd_queue.put(k)
+        except curses.error:
+            pass
 
         pose = runner.drain_queue(pos_queue)
         if pose:
@@ -93,4 +97,4 @@ if __name__ == '__main__':
     if len(sys.argv) < 2:
         print("Usage: remote_wanderer robot_name")
     else:
-        wrapper(main)
+        curses.wrapper(main)
