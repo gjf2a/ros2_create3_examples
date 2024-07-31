@@ -4,7 +4,7 @@ import rclpy
 from geometry_msgs.msg import Twist
 
 from ir_turn import IrTurnNode
-from bump_turn import BumpTurnNode
+from alternative_avoiders.bump_turn import BumpTurnNode
 
 
 class IrBumpTurnBot(runner.WheelMonitorNode):

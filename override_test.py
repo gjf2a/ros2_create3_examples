@@ -1,4 +1,4 @@
-import bump_turn
+from alternative_avoiders import bump_turn
 import rclpy
 import runner
 import sys

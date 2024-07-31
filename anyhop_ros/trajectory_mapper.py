@@ -6,7 +6,7 @@ from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 
 from ir_turn import IrTurnNode
-from bump_turn import BumpTurnNode
+from alternative_avoiders.bump_turn import BumpTurnNode
 
 
 class TrajectoryMapper(runner.WheelMonitorNode):
