@@ -55,7 +55,7 @@ def main(stdscr):
         try:
             k = stdscr.getkey()
             if k == 'q':
-                break
+                running.clear()
             elif not cmd_queue.full():
                 cmd_queue.put(k)
         except curses.error:
@@ -85,7 +85,6 @@ def main(stdscr):
             stdscr.addstr(8, 0, f"{bump_list}")
         stdscr.refresh()
 
-    running.clear()
     st.join()
 
 

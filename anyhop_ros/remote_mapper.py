@@ -3,11 +3,11 @@
 import threading, subprocess, curses, pickle, datetime
 
 from pyhop_anytime import *
-from curses_vision_demo import video_capture, display_frame
+from anyhop_ros.curses_vision_demo import video_capture, display_frame
 
 from queue import Queue
 
-from geometry_msgs.msg import Twist, Pose
+from geometry_msgs.msg import Pose
 from runner import RemoteNode, drain_queue, spin_thread_simpler
 from occupancy_grid import PathwayGrid
 
