@@ -5,7 +5,7 @@ from nav_msgs.msg import Odometry
 from irobot_create_msgs.msg import HazardDetectionVector
 
 
-class BumpTurnOdom(runner.OdomMonitorNode):
+class BumpTurnOdomNode(runner.OdomMonitorNode):
     def __init__(self, namespace: str = "", avoid_angle=math.pi/2,
                  avoid_distribution_width=math.pi/4, avoid_random_vars=2):
         super().__init__('bump_turn_odom', namespace)
@@ -17,20 +17,22 @@ class BumpTurnOdom(runner.OdomMonitorNode):
         self.last_pose = None
         self.heading_goal = None
 
+    def is_turning(self) -> bool:
+        return self.heading_goal is not None
+
     def odom_callback(self, msg: Odometry):
         super().odom_callback(msg)
-        if self.heading_goal is None:
-            self.publish_twist(runner.straight_twist(0.5))
-        elif abs(runner.angle_diff(self.heading_goal, self.last_heading())) < math.pi/32:
-            self.heading_goal = None
-        else:
-            self.publish_twist(runner.turn_twist_towards(math.pi/4, self.last_heading(), self.heading_goal))
+        if self.is_turning():
+            if abs(runner.angle_diff(self.heading_goal, self.last_heading())) < math.pi/32:
+                self.heading_goal = None
+            else:
+                self.publish_twist(runner.turn_twist_towards(math.pi/4, self.last_heading(), self.heading_goal))
 
     def hazard_callback(self, msg: HazardDetectionVector):
-        bump = runner.find_bump_from(msg.detections)
-        if bump is not None and self.has_position():
+        hazard = runner.find_hazard_from(msg.detections)
+        if hazard is not None and self.has_position():
             goal = runner.discretish_norm(self.avoid_angle, self.avoid_distribution_width, self.avoid_random_vars)
-            if 'left' in bump:
+            if 'left' in hazard:
                 goal *= -1
             self.heading_goal = self.last_heading() + goal
 
@@ -38,7 +40,23 @@ class BumpTurnOdom(runner.OdomMonitorNode):
         executor.add_node(self)
 
 
+class BumpTurnOdomBot(runner.HdxNode):
+    def __init__(self, namespace: str = ""):
+        super().__init__('bump_turn_bot', namespace)
+        self.bump_node = BumpTurnOdomNode(namespace)
+        self.create_timer(0.10, self.timer_callback)
+
+    def timer_callback(self):
+        self.record_first_callback()
+        if not self.bump_node.is_turning():
+            self.publish_twist(runner.straight_twist(0.5))
+
+    def add_self_recursive(self, executor):
+        executor.add_node(self)
+        self.bump_node.add_self_recursive(executor)
+
+
 if __name__ == '__main__':
     rclpy.init()
-    bot = BumpTurnOdom(f'/{sys.argv[1]}')
+    bot = BumpTurnOdomNode(f'/{sys.argv[1]}')
     runner.run_recursive_node(bot)

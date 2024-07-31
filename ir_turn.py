@@ -2,6 +2,7 @@ import sys
 import math
 import runner
 import rclpy
+from irobot_create_msgs.msg import IrIntensityVector
 
 
 class IrTurnNode(runner.HdxNode):
@@ -18,7 +19,7 @@ class IrTurnNode(runner.HdxNode):
     def is_turning(self):
         return self.turn_started
 
-    def ir_callback(self, msg):
+    def ir_callback(self, msg: IrIntensityVector):
         self.record_first_callback()
         ir_values = [reading.value for reading in msg.readings]
         max_ir = max(ir_values)

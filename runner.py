@@ -105,10 +105,31 @@ BUMP_HEADINGS = {
 }
 
 
+HAZARD_HEADINGS = {
+    'left': -math.pi / 2,
+    'front_left': -math.pi / 4,
+    'front_center': 0.0,
+    'front_right': math.pi / 4,
+    'right': math.pi / 2
+}
+
+
 def find_bump_from(detections):
     for detected in detections:
         if detected.header.frame_id.startswith('bump'):
             return detected.header.frame_id
+
+
+def find_hazard_from(detections):
+    for detected in detections:
+        if detected.header.frame_id.startswith('bump') or detected.header.frame_id.startswith('cliff'):
+            return detected.header.frame_id
+
+
+def get_hazard_dir(hazard_frame_id: str) -> float:
+    id_suffix = hazard_frame_id[hazard_frame_id.find('_') + 1:]
+    if id_suffix in HAZARD_HEADINGS:
+        return HAZARD_HEADINGS[id_suffix]
 
 
 class Timer:
