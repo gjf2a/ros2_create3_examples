@@ -21,16 +21,24 @@ def drain_queue(q):
     return result
 
 
-def straight_twist(vel):
+def straight_twist(vel: float) -> Twist:
     t = Twist()
     t.linear.x = vel
     return t
 
 
-def turn_twist(vel):
+def turn_twist(vel: float) -> Twist:
     t = Twist()
     t.angular.z = vel
     return t
+
+
+def turn_twist_towards(vel: float, current_heading: float, goal_heading: float) -> Twist:
+    turn_needed = angle_diff(goal_heading, current_heading)
+    if turn_needed < 0:
+        return turn_twist(-vel)
+    else:
+        return turn_twist(vel)
 
 
 def quaternion2euler(orientation: Quaternion) -> Tuple[float, float, float]:
@@ -167,6 +175,23 @@ class HdxNode(Node):
         return self.done
 
 
+class OdomMonitorNode(HdxNode):
+    def __init__(self, name, namespace):
+        super().__init__(name, namespace)
+        self.subscribe_odom(self.odom_callback)
+        self.last_pose = None
+
+    def odom_callback(self, msg: Odometry):
+        self.last_pose = msg.pose.pose
+
+    def last_x_y(self):
+        p = self.last_pose.position
+        return p.x, p.y
+
+    def last_heading(self):
+        return quaternion2euler(self.last_pose.orientation)[0]
+
+
 class WheelMonitorNode(HdxNode):
     def __init__(self, name, namespace):
         super().__init__(name, namespace)
@@ -252,7 +277,7 @@ class RemoteWandererNode(RemoteNode):
                 # TODO: Disable wandering node
                 self.publish_twist(self.commands[msg])
             elif msg == 'f':
-                # TODO: Set the robot Free. Enable wandering node.
+                # TODO: Set the robot Free. Enable wandering node. Use bump_turn_odom.py for inspiration.
                 pass
 
 
