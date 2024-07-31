@@ -184,6 +184,9 @@ class OdomMonitorNode(HdxNode):
     def odom_callback(self, msg: Odometry):
         self.last_pose = msg.pose.pose
 
+    def has_position(self) -> bool:
+        return self.last_pose is not None
+
     def last_x_y(self):
         p = self.last_pose.position
         return p.x, p.y
