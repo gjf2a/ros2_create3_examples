@@ -26,7 +26,7 @@ def main(stdscr):
     capture_thread.start()
 
     height, width = stdscr.getmaxyx()
-    info_window = curses.newwin(8, width, 0, 0)
+    info_window = curses.newwin(9, width, 0, 0)
     image_window = curses.newwin(height - 10, width, 10, 0)
 
     stdscr.nodelay(True)
