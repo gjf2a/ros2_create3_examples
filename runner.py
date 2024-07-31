@@ -126,8 +126,12 @@ def find_hazard_from(detections):
             return detected.header.frame_id
 
 
+def hazard_id_suffix(frame_id: str) -> str:
+    return frame_id[frame_id.find('_') + 1:]
+
+
 def get_hazard_dir(hazard_frame_id: str) -> float:
-    id_suffix = hazard_frame_id[hazard_frame_id.find('_') + 1:]
+    id_suffix = hazard_id_suffix(hazard_frame_id)
     if id_suffix in HAZARD_HEADINGS:
         return HAZARD_HEADINGS[id_suffix]
 

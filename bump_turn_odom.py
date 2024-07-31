@@ -5,14 +5,20 @@ from nav_msgs.msg import Odometry
 from irobot_create_msgs.msg import HazardDetectionVector
 
 
+HAZARD_TURNS = {
+    'left': -math.pi / 4,
+    'front_left': -math.pi / 2,
+    'front_center': math.pi / 2,
+    'front_right': math.pi / 2,
+    'right': math.pi / 4
+}
+
+
 class BumpTurnOdomNode(runner.OdomMonitorNode):
-    def __init__(self, namespace: str = "", avoid_angle=math.pi/2,
-                 avoid_distribution_width=math.pi/4, avoid_random_vars=2):
+    def __init__(self, namespace: str = "", avoid_random_vars=2):
         super().__init__('bump_turn_odom', namespace)
         self.subscribe_hazard(self.hazard_callback)
         self.subscribe_odom(self.odom_callback)
-        self.avoid_angle = avoid_angle
-        self.avoid_distribution_width = avoid_distribution_width
         self.avoid_random_vars = avoid_random_vars
         self.last_pose = None
         self.heading_goal = None
@@ -31,9 +37,9 @@ class BumpTurnOdomNode(runner.OdomMonitorNode):
     def hazard_callback(self, msg: HazardDetectionVector):
         hazard = runner.find_hazard_from(msg.detections)
         if hazard is not None and self.has_position():
-            goal = runner.discretish_norm(self.avoid_angle, self.avoid_distribution_width, self.avoid_random_vars)
-            if 'left' in hazard:
-                goal *= -1
+            suffix = runner.hazard_id_suffix(hazard)
+            angle_center = HAZARD_TURNS[suffix]
+            goal = runner.discretish_norm(angle_center, angle_center / 2, self.avoid_random_vars)
             self.heading_goal = self.last_heading() + goal
 
     def add_self_recursive(self, executor):
