@@ -1,3 +1,6 @@
+# Before running this program, type the following command:
+# sudo chmod 666 /dev/video0
+
 import curses, sys, threading
 from queue import Queue
 import remote_wanderer, runner, curses_vision_demo

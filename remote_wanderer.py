@@ -86,12 +86,14 @@ def display_pose(stdscr, pos_queue, start_line):
             stdscr.addstr(start_line, 0, f"{pose:.2f}")
         else:
             stdscr.addstr(start_line + 4, 0, f"{type(pose)} {pose}")
+        return pose
 
 
 def display_ir(stdscr, ir_queue, start_line):
     ir = runner.drain_queue(ir_queue)
     if ir:
         stdscr.addstr(start_line, 0, f"ir: {ir}{' ' * 30}")
+        return ir
 
 
 def display_bump(stdscr, bump_queue, bump_list, start_line):
@@ -99,6 +101,7 @@ def display_bump(stdscr, bump_queue, bump_list, start_line):
         b = bump_queue.get()
         bump_list.append(b)
         stdscr.addstr(start_line, 0, f"{bump_list[-3:]}")
+        return b
 
 
 if __name__ == '__main__':
