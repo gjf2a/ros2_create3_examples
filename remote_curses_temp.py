@@ -56,12 +56,12 @@ def main(stdscr):
 
 def handle_temperature(stdscr, thermometer, line, pos):
     current_temperature = thermometer.get_temperature(Unit.DEGREES_F)
-    stdscr.addstr(line, 0, f"Temperature: {current_temperature}F")
-    with open(sys.argv[3], 'a') as fout:
+    stdscr.addstr(line, 0, f"Temperature: {current_temperature}F{' '*80}")
+    with open(sys.argv[2], 'a') as fout:
         try:
-            fout.write(f"{current_temperature} {p} {time.time()}\n")
+            fout.write(f"{current_temperature} {pos} {time.time()}\n")
         except:
-            print(f"update failed at {time.time()} {p}")
+            print(f"update failed at {time.time()} {pos}")
 
 
 if __name__ == '__main__':
