@@ -1,7 +1,7 @@
 # Before running this program, type the following command:
 # sudo chmod 666 /dev/video0
 
-import curses, sys, threading
+import curses, sys, threading, time
 from queue import Queue
 import remote_wanderer, runner, curses_vision_demo, remote_wanderer_video
 from w1thermsensor import W1ThermSensor
@@ -32,8 +32,8 @@ def main(stdscr):
     capture_thread.start()
 
     height, width = stdscr.getmaxyx()
-    info_window = curses.newwin(10, width, 0, 0)
-    image_window = curses.newwin(height - 11, width, 11, 0)
+    info_window = curses.newwin(11, width, 0, 0)
+    image_window = curses.newwin(height - 12, width, 12, 0)
 
     stdscr.nodelay(True)
     info_window.addstr(1, 0, 'WASD to move; F to Freely Wander; Q to quit')
@@ -57,11 +57,11 @@ def main(stdscr):
 def handle_temperature(stdscr, thermometer, line, pos):
     current_temperature = thermometer.get_temperature(Unit.DEGREES_F)
     stdscr.addstr(line, 0, f"Temperature: {current_temperature}F")
-    #with open(temperature_filename, 'a') as fout:
-    #    try:
-    #        fout.write(f"{current_temperature} {p} {time.time()}\n")
-    #    except:
-    #        print(f"update failed at {time.time()} {p}")
+    with open(sys.argv[3], 'a') as fout:
+        try:
+            fout.write(f"{current_temperature} {p} {time.time()}\n")
+        except:
+            print(f"update failed at {time.time()} {p}")
 
 
 if __name__ == '__main__':
