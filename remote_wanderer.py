@@ -64,6 +64,7 @@ def main(stdscr):
 def get_cmd(stdscr, cmd_queue, running):
     try:
         k = stdscr.getkey()
+        curses.flushinp()
         if k == 'q':
             running.clear()
         elif not cmd_queue.full():
