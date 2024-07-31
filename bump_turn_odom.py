@@ -58,5 +58,5 @@ class BumpTurnOdomBot(runner.HdxNode):
 
 if __name__ == '__main__':
     rclpy.init()
-    bot = BumpTurnOdomNode(f'/{sys.argv[1]}')
+    bot = BumpTurnOdomBot(f'/{sys.argv[1]}')
     runner.run_recursive_node(bot)
