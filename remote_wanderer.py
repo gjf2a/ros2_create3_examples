@@ -51,8 +51,6 @@ def main(stdscr):
     stdscr.addstr(1, 0, 'WASD to move; F to Freely Wander; Q to quit')
     stdscr.refresh()
 
-    loops = 0
-
     while running.is_set():
         try:
             k = stdscr.getkey()
@@ -85,8 +83,6 @@ def main(stdscr):
             b = bump_queue.get()
             bump_list.append(b)
             stdscr.addstr(8, 0, f"{bump_list}")
-        stdscr.addstr(9, 0, f"loops: {loops}")
-        loops += 1
         stdscr.refresh()
 
     running.clear()
