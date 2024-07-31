@@ -52,40 +52,53 @@ def main(stdscr):
     stdscr.refresh()
 
     while running.is_set():
-        try:
-            k = stdscr.getkey()
-            if k == 'q':
-                running.clear()
-            elif not cmd_queue.full():
-                cmd_queue.put(k)
-        except curses.error:
-            pass
-
-        pose = runner.drain_queue(pos_queue)
-        if pose:
-            if type(pose) == str:
-                stdscr.addstr(5, 0, f"str: {pose}")
-            if type(pose) == Pose:
-                p = pose.position
-                h = pose.orientation
-                stdscr.addstr(3, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})        ")
-                stdscr.addstr(4, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})        ")
-            elif type(pose) == float:
-                stdscr.addstr(2, 0, f"{pose:.2f}")
-            else:
-                stdscr.addstr(7, 0, f"{type(pose)} {pose}")
-
-        ir = runner.drain_queue(ir_queue)
-        if ir:
-            stdscr.addstr(6, 0, f"ir: {ir}{' ' * 30}")
-
-        if not bump_queue.empty():
-            b = bump_queue.get()
-            bump_list.append(b)
-            stdscr.addstr(8, 0, f"{bump_list}")
+        get_cmd(stdscr, cmd_queue, running)
+        display_pose(stdscr, pos_queue)
+        display_ir(stdscr, ir_queue)
+        display_bump(stdscr, bump_queue, bump_list)
         stdscr.refresh()
 
     st.join()
+
+
+def get_cmd(stdscr, cmd_queue, running):
+    try:
+        k = stdscr.getkey()
+        if k == 'q':
+            running.clear()
+        elif not cmd_queue.full():
+            cmd_queue.put(k)
+    except curses.error:
+        pass
+
+
+def display_pose(stdscr, pos_queue):
+    pose = runner.drain_queue(pos_queue)
+    if pose:
+        if type(pose) == str:
+            stdscr.addstr(5, 0, f"str: {pose}")
+        if type(pose) == Pose:
+            p = pose.position
+            h = pose.orientation
+            stdscr.addstr(3, 0, f"Position:    ({p.x:6.2f}, {p.y:6.2f}, {p.z:6.2f})        ")
+            stdscr.addstr(4, 0, f"Orientation: ({h.x:6.2f}, {h.y:6.2f}, {h.z:6.2f}, {h.w:6.2f})        ")
+        elif type(pose) == float:
+            stdscr.addstr(2, 0, f"{pose:.2f}")
+        else:
+            stdscr.addstr(7, 0, f"{type(pose)} {pose}")
+
+
+def display_ir(stdscr, ir_queue):
+    ir = runner.drain_queue(ir_queue)
+    if ir:
+        stdscr.addstr(6, 0, f"ir: {ir}{' ' * 30}")
+
+
+def display_bump(stdscr, bump_queue, bump_list):
+    if not bump_queue.empty():
+        b = bump_queue.get()
+        bump_list.append(b)
+        stdscr.addstr(8, 0, f"{bump_list}")
 
 
 if __name__ == '__main__':

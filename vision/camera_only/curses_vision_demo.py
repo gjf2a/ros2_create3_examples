@@ -14,9 +14,9 @@ import threading
 import sys
 
 
-def video_capture(event, image_queue, port: int):
+def video_capture(running, image_queue, port: int):
     cap = cv2.VideoCapture(port)
-    while event.is_set():
+    while running.is_set():
         ret, frame = cap.read()
         image_queue.put(frame)
 
