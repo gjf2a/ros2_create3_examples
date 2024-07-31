@@ -36,12 +36,12 @@ def main(stdscr):
     while running.is_set():
         remote_wanderer.get_cmd(stdscr, cmd_queue, running)
 
+        handle_image(image_queue, image_window)
+
         remote_wanderer.display_pose(info_window, pos_queue, 2)
         remote_wanderer.display_ir(info_window, ir_queue, 7)
         remote_wanderer.display_bump(info_window, bump_queue, bump_list, 8)
         info_window.refresh()
-
-        handle_image(image_queue, image_window)
 
     capture_thread.join()
     robot_thread.join()
