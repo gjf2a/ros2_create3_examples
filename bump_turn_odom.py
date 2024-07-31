@@ -2,6 +2,7 @@ import math, sys
 import runner
 import rclpy
 from nav_msgs.msg import Odometry
+from irobot_create_msgs.msg import HazardDetectionVector
 
 
 class BumpTurnOdom(runner.OdomMonitorNode):
@@ -25,7 +26,7 @@ class BumpTurnOdom(runner.OdomMonitorNode):
         else:
             self.publish_twist(runner.turn_twist_towards(math.pi/4, self.last_heading(), self.heading_goal))
 
-    def hazard_callback(self, msg):
+    def hazard_callback(self, msg: HazardDetectionVector):
         bump = runner.find_bump_from(msg.detections)
         if bump is not None and self.has_position():
             goal = runner.discretish_norm(self.avoid_angle, self.avoid_distribution_width, self.avoid_random_vars)
