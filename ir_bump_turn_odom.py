@@ -12,14 +12,16 @@ class IrBumpTurnBot(runner.WheelMonitorNode):
         self.bump_node = bump_turn_odom.BumpTurnOdomNode(namespace)
         self.create_timer(0.10, self.timer_callback)
 
+    def is_turning(self):
+        return self.bump_node.is_turning() or self.ir_node.is_turning()
+
     def timer_callback(self):
         self.record_first_callback()
-        if not self.bump_node.is_turning():
-            if not self.ir_node.is_turning():
-                if self.ir_node.ir_clear():
-                    self.publish_twist(runner.straight_twist(0.5))
-                elif self.wheels_stopped():
-                    self.ir_node.start_turn_until_clear()
+        if not self.is_turning():
+            if self.ir_node.ir_clear():
+                self.publish_twist(runner.straight_twist(0.5))
+            elif self.wheels_stopped():
+                self.ir_node.start_turn_until_clear()
 
     def add_self_recursive(self, executor):
         executor.add_node(self)

@@ -158,6 +158,13 @@ class HdxNode(Node):
         self.first_callback_time = None
         self.done = False
         self.twist_publisher = self.create_publisher(Twist, f"{namespace}/cmd_vel", 10)
+        self.paused = False
+
+    def pause(self):
+        self.paused = True
+
+    def resume(self):
+        self.paused = False
 
     def subscribe_odom(self, callback):
         self.create_subscription(Odometry, f'{self.namespace}/odom', callback, qos_profile_sensor_data)
@@ -178,7 +185,8 @@ class HdxNode(Node):
         self.create_subscription(WheelStatus, f'{self.namespace}/wheel_status', callback, qos_profile_sensor_data)
 
     def publish_twist(self, twist: Twist):
-        self.twist_publisher.publish(twist)
+        if not self.paused:
+            self.twist_publisher.publish(twist)
 
     def record_first_callback(self):
         if self.first_callback_time is None:
@@ -288,25 +296,6 @@ class RemoteNode(HdxNode):
             self.publish_twist(self.commands[msg])
             # Send an echo so the sender knows the publish happened.
             #self.pos_queue.put(msg)
-
-
-class RemoteWandererNode(RemoteNode):
-    """
-    Variant of RemoteNode that can be commanded to wander autonomously.
-    """
-    def __init__(self, cmd_queue, pos_queue, ir_queue, bump_queue, namespace: str = ""):
-        super().__init__(cmd_queue, pos_queue, ir_queue, bump_queue, namespace)
-
-    def timer_callback(self):
-        self.pos_queue.put(self.elapsed_time())
-        msg = drain_queue(self.cmd_queue)
-        if msg is not None:
-            if msg in self.commands:
-                # TODO: Disable wandering node
-                self.publish_twist(self.commands[msg])
-            elif msg == 'f':
-                # TODO: Set the robot Free. Enable wandering node. Use bump_turn_odom.py for inspiration.
-                pass
 
 
 GO_TO_ANGLE_TOLERANCE = math.pi / 32

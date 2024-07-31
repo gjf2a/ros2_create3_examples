@@ -1,10 +1,33 @@
+import runner
+import ir_bump_turn_odom
+from geometry_msgs.msg import Pose
 from curses import wrapper, curs_set
 import threading
 from queue import Queue
 import sys
 
-from runner import RemoteNode, drain_queue, spin_thread_simple
-from geometry_msgs.msg import Pose
+
+class RemoteWandererNode(runner.RemoteNode):
+    """
+    Variant of RemoteNode that can be commanded to wander autonomously.
+    """
+    def __init__(self, cmd_queue, pos_queue, ir_queue, bump_queue, namespace: str = "", ir_limit=50):
+        super().__init__(cmd_queue, pos_queue, ir_queue, bump_queue, namespace)
+        self.wanderer = ir_bump_turn_odom.IrBumpTurnBot(namespace, ir_limit)
+
+    def timer_callback(self):
+        self.pos_queue.put(self.elapsed_time())
+        msg = runner.drain_queue(self.cmd_queue)
+        if msg is not None:
+            if msg in self.commands:
+                self.wanderer.pause()
+                self.publish_twist(self.commands[msg])
+            elif msg == 'f':
+                self.wanderer.resume()
+
+    def add_self_recursive(self, executor):
+        executor.add_node(self)
+        self.wanderer.add_self_recursive(executor)
 
 
 def main(stdscr):
@@ -17,13 +40,15 @@ def main(stdscr):
     bump_queue = Queue()
     ir_queue = Queue()
     bump_list = []
-    
-    st = threading.Thread(target=spin_thread_simple, args=(finished, lambda: RemoteNode(cmd_queue, pos_queue, ir_queue, bump_queue, sys.argv[1])))
+
+    st = threading.Thread(target=runner.spin_thread_recursive_node,
+                          args=(finished, lambda: RemoteWandererNode(cmd_queue, pos_queue, ir_queue, bump_queue,
+                                                                     sys.argv[1])))
     st.start()
 
-    stdscr.addstr(1, 0, 'WASD to move; Q to quit')
+    stdscr.addstr(1, 0, 'WASD to move; F to Freely Wander; Q to quit')
     stdscr.refresh()
-    
+
     while True:
         k = stdscr.getkey()
         if k == 'q':
@@ -31,7 +56,7 @@ def main(stdscr):
         elif not cmd_queue.full():
             cmd_queue.put(k)
 
-        pose = drain_queue(pos_queue)
+        pose = runner.drain_queue(pos_queue)
         if pose:
             if type(pose) == str:
                 stdscr.addstr(5, 0, f"str: {pose}")
@@ -45,7 +70,7 @@ def main(stdscr):
             else:
                 stdscr.addstr(7, 0, f"{type(pose)} {pose}")
 
-        ir = drain_queue(ir_queue)
+        ir = runner.drain_queue(ir_queue)
         if ir:
             stdscr.addstr(6, 0, f"ir: {ir}{' ' * 30}")
 
@@ -57,10 +82,10 @@ def main(stdscr):
 
     finished.set()
     st.join()
-    
+
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print("Usage: remote_bot robot_name")
+        print("Usage: remote_wanderer robot_name")
     else:
         wrapper(main)
