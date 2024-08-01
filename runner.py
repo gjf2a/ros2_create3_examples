@@ -159,12 +159,28 @@ class HdxNode(Node):
         self.done = False
         self.twist_publisher = self.create_publisher(Twist, f"{namespace}/cmd_vel", 10)
         self.paused = False
+        self.child_nodes = {}
+
+    def add_self_recursive(self, executor):
+        executor.add_node(self)
+        for n in self.child_nodes.values():
+            n.add_self_recursive(executor)
+
+    def add_child_node(self, other: 'HdxNode'):
+        self.child_nodes[type(other).__name__] = other
+
+    def __getitem__(self, item: str) -> 'HdxNode':
+        return self.child_nodes[item]
 
     def pause(self):
         self.paused = True
+        for n in self.child_nodes.values():
+            n.pause()
 
     def resume(self):
         self.paused = False
+        for n in self.child_nodes.values():
+            n.resume()
 
     def subscribe_odom(self, callback):
         self.create_subscription(Odometry, f'{self.namespace}/odom', callback, qos_profile_sensor_data)
