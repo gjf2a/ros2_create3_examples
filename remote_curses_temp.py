@@ -4,7 +4,7 @@
 import curses, sys, threading, time
 from queue import Queue
 import remote_wanderer, runner, curses_vision_demo, remote_wanderer_video
-from w1thermsensor import W1ThermSensor
+import w1thermsensor
 from w1thermsensor.units import Unit
 
 
@@ -20,7 +20,7 @@ def main(stdscr):
     ir_queue = Queue()
     image_queue = Queue()
     bump_list = []
-    thermometer = W1ThermSensor()
+    thermometer = w1thermsensor.W1ThermSensor()
 
     robot_thread = threading.Thread(target=runner.spin_thread_recursive_node,
                                     args=(running, lambda: remote_wanderer.RemoteWandererNode(cmd_queue, pos_queue,
@@ -55,13 +55,16 @@ def main(stdscr):
 
 
 def handle_temperature(stdscr, thermometer, line, pos):
-    current_temperature = thermometer.get_temperature(Unit.DEGREES_F)
-    stdscr.addstr(line, 0, f"Temperature: {current_temperature}F{' '*80}")
-    with open(sys.argv[2], 'a') as fout:
-        try:
-            fout.write(f"{current_temperature} {pos} {time.time()}\n")
-        except:
-            print(f"update failed at {time.time()} {pos}")
+    try:
+        current_temperature = thermometer.get_temperature(Unit.DEGREES_F)
+        stdscr.addstr(line, 0, f"Temperature: {current_temperature}F{' '*80}")
+        with open(sys.argv[2], 'a') as fout:
+            try:
+                fout.write(f"{current_temperature} {pos} {time.time()}\n")
+            except IOError as e:
+                stdscr.addstr(line, 0, f"update failed at {time.time()} {pos}: {e}")
+    except w1thermsensor.errors.SensorNotReadyError as e:
+        stdscr.addstr(line, 0, f"{e}")
 
 
 if __name__ == '__main__':
