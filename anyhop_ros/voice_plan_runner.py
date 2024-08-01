@@ -40,7 +40,6 @@ class LLMConnector: #class used to create calls to Ollama API
         if response.status_code == 200: #code for success
             response_text = response.text
             response = json.loads(response.text)["response"] #extracts response from json object
-            print("Response: " + response) # prints llm response for testing purposes
             writeToFile("transcript.txt", "llm: " + response)
             writeToFile("transcript.txt", "**Response recieved in " + str(timer) + " seconds**")
             return response
@@ -49,10 +48,12 @@ class LLMConnector: #class used to create calls to Ollama API
             return None
 
 def outputSpeech(text): #method for text to voice output, takes message as input
-   speech_engine.pyttsSpeaker().outputSpeech(text)
-      
+    speech_engine.pyttsSpeaker().outputSpeech(text)
+    writeToFile('transcript.txt', "system: " + text)
 def getSpeechInput(output): #outputs message, returns result of voice input, takes message as input
     input = speech_engine.voskRecognizer().getInput(output)
+    if len(output) >= 1:
+        writeToFile("transcript.txt", "system: " + output)
     writeToFile("transcript.txt", "user: " + input)
     return input
 
@@ -72,7 +73,7 @@ class PackageDeliveryState(): #state in which robot delivers package from curren
         self.request= request
         self.startTime = startTime
         #Sets up instance of object that is used to generate method calls through ollama API with phi3:3.8b as the model and a description of the floor and task as a system message
-        message = getStateDescription(self.runner) + " Based on the following input, you are to identify a package and the destination the user would like the package to be delivered to. Output your findings in the following format **package** **destination**, replacing **package** with the name of the package and **destination** with the name of the destination, as identified from the input. Output only a single room and package in the specifed format with no extra characters, instructions, explanations, or labels. Do not explain the selection or provide any additional information whatsoever. The output should consist of only a package and destination with no additional text."
+        message = getStateDescription(self.runner) + " Based on the following input, you are to identify a package and the destination the user would like the package to be delivered to. Output your findings in the following format **package** **destination**, replacing **package** with the name of the package and **destination** with the name of the destination, as identified from the input."
         self.methodCaller = LLMConnector("phi3:3.8b", message)
         #Sets up instance of object that is used to evaluate user verification through ollama API with phi3:3.8b as the model and a description of the floor and task as a system message
         self.classifier = LLMConnector("phi3:3.8b", "You are an expert classifier who determines if the prompt is a positive or negative response. If it is a positive response, output a 1. If it is a negative response or you are unsure, output a 0. Do not include any additional text, explanations, or notes.")
@@ -104,9 +105,16 @@ class PackageDeliveryState(): #state in which robot delivers package from curren
                     newInfo = getSpeechInput("Please clarify an item and destination") #gets clarification from user                  
                     prompt = prompt + newInfo #adds additional instructions to original prompt
                     userRevisions += 1
-            else: #tries again with same prompt because the response from the llm was bad
-                SystemCorrections += 1
-                outputSpeech("Trying again")
+            elif i <4: #tries again with same prompt because the response from the llm was bad
+                if (systemCorrections %2) == 1:
+                    newInfo = getSpeechInput("Please clarify an item and destination") #gets clarification from user                  
+                    prompt = prompt + newInfo #adds additional instructions to original prompt
+                    userRevisions += 1
+                else:
+                    outputSpeech("Trying again")
+                systemCorrections += 1
+            else:
+                outputSpeech("Process failed")
         writeToFile("log.txt", state + "," + str(userRevisions) + "," + str(systemCorrections) + "," + str(executed) + "," + str(timer))
         return RoutingState(self.runner) #returns next state to main method, which is the routing state
 
@@ -155,7 +163,7 @@ class NavigationState(): #state in which the robot moves from current location t
         self.runner = runner
         self.request = request
         self.startTime = startTime
-        message = getStateDescription(self.runner) + " Based on the following input, you are to identify the name of the destination the user would like the robot to navigate to and output it in the following format **destination** by replacing **destination** with the one identified. Output only the name of a single destination with no extra characters, instructions, explanations, or labels. Do not explain the selection or provide any additional information whatsoever. The output should consist of only a destination with no additional text."
+        message = getStateDescription(self.runner) + " Based on the following input, you are to identify the name of the destination the user would like the robot to navigate to and output it in the following format **destination** by replacing **destination** with the one identified." 
         #Sets up instance of object that is used to generate method calls through ollama API with phi3:3.8b as the model and a description of the floor and task as a system message
         self.methodCaller = LLMConnector("phi3:3.8b", message)
         #Sets up instance of object that is used to evaluate user verification through ollama API with phi3:3.8b as the model 
@@ -170,7 +178,7 @@ class NavigationState(): #state in which the robot moves from current location t
         timer = ""
         prompt = self.request
         for i in range(5): #allows four additional attempts to fine tune prompt before failing process
-            navigationDetails = self.methodCaller.prompt(prompt) #recieves details in specifed format from llm
+            navigationDetails = self.methodCaller.prompt(prompt).replace('*','')  #recieves details in specifed format from llm
             parts = navigationDetails.split() #seperates location and item
             if len(parts) >= 1 and parts[0] in self.runner.state.graph: #verifies that method call contains valid location
                 response = getSpeechInput("To confirm, would you like the robot to navigate to" + self.runner.state.aliases[parts[0]] + "?") #verifies request using location
@@ -190,8 +198,13 @@ class NavigationState(): #state in which the robot moves from current location t
                     prompt = prompt + newInfo #adds additional instructions to original prompt
                     userRevisions += 1
             elif i<4: #tries again with same prompt because the response from the llm was bad
-                outputSpeech("Trying again")
-                SystemCorrections += 1
+                if (systemCorrections %2) == 1:
+                    newInfo = getSpeechInput("Please clarify an item and destination") #gets clarification from user                  
+                    prompt = prompt + newInfo #adds additional instructions to original prompt
+                    userRevisions += 1
+                else: 
+                    outputSpeech("Trying again")
+                systemCorrections += 1
             else:
                 outputSpeech("Process Failed")
         writeToFile("log.txt", state + "," + str(userRevisions) + "," + str(systemCorrections) + "," + str(executed) + "," + str(timer))
@@ -206,14 +219,13 @@ class RoutingState(): #state in which the system determines which state the user
                                        (1) navigate a robot
                                        (2) describe the current state of the system
                                        (3) answer questions regarding the system
-                                       (4) quit the program
                                        Based on the following input, determine which of the abilities the user would like to access and output only the corresponding number, no text. 
                                        """)
     def action(self): #action takes input from user and returns the desired state
         while True: #in loop so that it will try to determine the appropriate state again if the process fails
             input = ""
             while "robot" not in input:
-                input = getSpeechInput('test')
+                input = getSpeechInput('')
             request = getSpeechInput("Ready for command") #gives user options and recieves reponse
             startTime = time.perf_counter()
             classification = self.classifier.prompt(request) #prompts llm with user input
@@ -240,10 +252,10 @@ def main(args=None):
         map_data = pickle.load(f)
     aliases = dict()
     with open(sys.argv[2] + "/" + sys.argv[2] + "_aliases") as f:
-        lines = f.readlines()
+        lines = f.read().splitlines()
         for i in range(0, len(lines)-1, 2):
             aliases[lines[i]] = lines[i+1]
-    runner = HTN.RobotMapRunner(sys.argv[2], sys.argv[1], map_data, map_description)
+    runner = HTN.RobotMapRunner(sys.argv[2], sys.argv[1], map_data, map_description, aliases)
     runner.st.start()
     runner.ht.start()
     runner.cmd_queue.put('reset')
