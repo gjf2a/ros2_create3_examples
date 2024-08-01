@@ -29,7 +29,7 @@ def my_raw_input(stdscr, row, col, prompt_string):
 
 class Runner:
     def __init__(self, stdscr):
-        self.map = PathwayGrid(0.2)
+        self.map = PathwayGrid(0.5)
         self.bot = sys.argv[1]
 
         self.height, self.width = stdscr.getmaxyx()

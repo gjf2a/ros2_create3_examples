@@ -12,7 +12,8 @@ class voskRecognizer():
         self.p = pyaudio.PyAudio()
         self.speaker = pyttsSpeaker()
     def getInput(self, text):
-        self.speaker.outputSpeech(text)
+        if len(text) >= 1:
+            self.speaker.outputSpeech(text)
         stream = self.p.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=8192)
         recognized_text = ""
         while len(recognized_text) == 0:
@@ -30,7 +31,7 @@ class pyttsSpeaker():
         # Initialize the TTS engine
         self.speaker = pyttsx3.init()
         # Set properties (optional)
-        self.speaker.setProperty('rate', 150)  # Speed of speech (words per minute)
+        self.speaker.setProperty('rate', 130)  # Speed of speech (words per minute)
         self.speaker.setProperty('volume', 1.0)  # Volume (0.0 to 1.0)
         self.speaker.setProperty('voice', 'English (America)')
     def outputSpeech(self, text):
