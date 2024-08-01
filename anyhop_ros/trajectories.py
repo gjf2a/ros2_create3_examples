@@ -4,6 +4,17 @@ from typing import Tuple, List
 import runner
 
 
+class Landmark:
+    def __init__(self, points=None):
+        self.points = [] if points is None else points
+
+    def add_point(self, point: Tuple[float, float], incoming_trajectory: float):
+        self.points.append((point, incoming_trajectory))
+
+    def within(self, candidate: Tuple[float, float], robot_diameter: float) -> bool:
+        return any(runner.euclidean_distance(p, candidate) < robot_diameter for (p, _) in self.points)
+
+
 class TrajectoryMap:
     def __init__(self, distance_tolerance: float=0.01, heading_tolerance: float = math.pi / 32,
                  start=None, collisions=None, prev=None, current=None):
@@ -46,3 +57,16 @@ class TrajectoryMap:
             return result
         else:
             return []
+
+    def landmarks(self, robot_diameter=0.15) -> List[Landmark]:
+        result = []
+        prev = self.start
+        for p in self.collisions:
+            added = False
+            for mark in result:
+                if mark.within(p, robot_diameter):
+                    added = True
+                    mark.add_point(p, math.atan2(p[1] - prev[1], p[0] - prev[0]))
+            if not added:
+                result.append(Landmark([p]))
+        return result
