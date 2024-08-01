@@ -69,4 +69,5 @@ class TrajectoryMap:
                     mark.add_point(p, math.atan2(p[1] - prev[1], p[0] - prev[0]))
             if not added:
                 result.append(Landmark([p]))
+            prev = p
         return result
