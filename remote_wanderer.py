@@ -24,6 +24,7 @@ class RemoteWandererNode(runner.RemoteNode):
                 self.publish_twist(self.commands[msg])
             elif msg == 'f':
                 self.wanderer.resume()
+        self.pos_queue.put(f"wanderer paused? {self.wanderer.paused}")
 
     def add_self_recursive(self, executor):
         executor.add_node(self)
