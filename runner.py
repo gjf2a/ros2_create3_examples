@@ -233,11 +233,12 @@ class OdomMonitorNode(HdxNode):
     def has_position(self) -> bool:
         return self.last_pose is not None
 
-    def last_x_y(self):
-        p = self.last_pose.position
-        return p.x, p.y
+    def last_x_y(self) -> Tuple[float, float]:
+        if self.last_pose is not None:
+            p = self.last_pose.position
+            return p.x, p.y
 
-    def last_heading(self):
+    def last_heading(self) -> float:
         return quaternion2euler(self.last_pose.orientation)[0]
 
 
