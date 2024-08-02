@@ -1,4 +1,6 @@
 import sys
+from typing import Tuple
+
 import runner
 import rclpy
 
@@ -8,12 +10,16 @@ import ir_turn, bump_turn_odom
 class IrBumpTurnBot(runner.HdxNode):
     def __init__(self, namespace, ir_limit):
         super().__init__('ir_bump_turn_bot', namespace)
-        self.add_child_node(ir_turn.IrTurnNode(namespace, ir_limit))
-        self.add_child_node(bump_turn_odom.BumpTurnOdomNode(namespace))
+        self.ir_turn = ir_turn.IrTurnNode(namespace, ir_limit)
+        self.bump_turn = bump_turn_odom.BumpTurnOdomNode(namespace)
+        self.add_child_nodes(self.ir_turn, self.bump_turn)
         self.create_timer(0.10, self.timer_callback)
 
+    def last_x_y(self) -> Tuple[float, float]:
+        return self.bump_turn.last_x_y()
+
     def is_turning(self):
-        return self['BumpTurnOdomNode'].is_turning() or self['IrTurnNode'].is_turning()
+        return self.bump_turn.is_turning() or self.ir_turn.is_turning()
 
     def timer_callback(self):
         self.record_first_callback()

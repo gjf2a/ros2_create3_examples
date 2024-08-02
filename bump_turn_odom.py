@@ -46,12 +46,13 @@ class BumpTurnOdomNode(runner.OdomMonitorNode):
 class BumpTurnOdomBot(runner.HdxNode):
     def __init__(self, namespace: str = ""):
         super().__init__('bump_turn_bot', namespace)
-        self.add_child_node(BumpTurnOdomNode(namespace))
+        self.bump_turn = BumpTurnOdomNode(namespace)
+        self.add_child_nodes(self.bump_turn)
         self.create_timer(0.10, self.timer_callback)
 
     def timer_callback(self):
         self.record_first_callback()
-        if not self['BumpTurnOdomNode'].is_turning():
+        if not self.bump_turn.is_turning():
             self.publish_twist(runner.straight_twist(0.5))
 
 

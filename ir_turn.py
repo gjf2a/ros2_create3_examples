@@ -36,12 +36,13 @@ class IrTurnNode(runner.HdxNode):
 class IrTurnBot(runner.HdxNode):
     def __init__(self, namespace: str = "", ir_limit=50):
         super().__init__('ir_turn_bot', namespace)
-        self.add_child_node(IrTurnNode(namespace, ir_limit))
+        self.ir_turn = IrTurnNode(namespace, ir_limit)
+        self.add_child_nodes(self.ir_turn)
         self.create_timer(0.10, self.timer_callback)
 
     def timer_callback(self):
         self.record_first_callback()
-        if self['IrTurnNode'].ir_clear():
+        if self.ir_turn.ir_clear():
             self.publish_twist(runner.straight_twist(0.5))
 
 
