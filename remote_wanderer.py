@@ -1,5 +1,5 @@
 import runner
-import ir_bump_turn_odom, bump_turn_odom
+import ir_bump_turn_odom
 from geometry_msgs.msg import Pose
 import curses
 import threading
