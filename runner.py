@@ -166,8 +166,10 @@ class HdxNode(Node):
         for n in self.child_nodes.values():
             n.add_self_recursive(executor)
 
-    def add_child_node(self, other: 'HdxNode'):
-        self.child_nodes[type(other).__name__] = other
+    def add_child_node(self, other: 'HdxNode', name=None):
+        if name is None:
+            name = type(other).__name__
+        self.child_nodes[name] = other
 
     def __getitem__(self, item: str) -> 'HdxNode':
         return self.child_nodes[item]

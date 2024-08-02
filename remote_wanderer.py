@@ -13,23 +13,19 @@ class RemoteWandererNode(runner.RemoteNode):
     """
     def __init__(self, cmd_queue, pos_queue, ir_queue, bump_queue, namespace: str = "", ir_limit=50):
         super().__init__(cmd_queue, pos_queue, ir_queue, bump_queue, namespace)
-        #self.wanderer = ir_bump_turn_odom.IrBumpTurnBot(namespace, ir_limit)
-        self.wanderer = bump_turn_odom.BumpTurnOdomBot(namespace)
+        #self.add_child_node(bump_turn_odom.BumpTurnOdomBot(namespace), "wanderer")
+        self.add_child_node(ir_bump_turn_odom.IrBumpTurnBot(namespace, ir_limit), 'wanderer')
 
     def timer_callback(self):
         self.pos_queue.put(self.elapsed_time())
         msg = runner.drain_queue(self.cmd_queue)
         if msg is not None:
             if msg in self.commands:
-                self.wanderer.pause()
+                self['wanderer'].pause()
                 self.publish_twist(self.commands[msg])
             elif msg == 'f':
-                self.wanderer.resume()
-        self.pos_queue.put(f"wanderer paused? {self.wanderer.paused} ")
-
-    def add_self_recursive(self, executor):
-        executor.add_node(self)
-        self.wanderer.add_self_recursive(executor)
+                self['wanderer'].resume()
+        self.pos_queue.put(f"wanderer paused? {self['wanderer'].paused} ")
 
 
 def main(stdscr):
