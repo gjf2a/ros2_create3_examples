@@ -159,29 +159,24 @@ class HdxNode(Node):
         self.done = False
         self.twist_publisher = self.create_publisher(Twist, f"{namespace}/cmd_vel", 10)
         self.paused = False
-        self.child_nodes = {}
+        self.child_nodes = []
 
     def add_self_recursive(self, executor):
         executor.add_node(self)
-        for n in self.child_nodes.values():
+        for n in self.child_nodes:
             n.add_self_recursive(executor)
 
-    def add_child_node(self, other: 'HdxNode', name=None):
-        if name is None:
-            name = type(other).__name__
-        self.child_nodes[name] = other
-
-    def __getitem__(self, item: str) -> 'HdxNode':
-        return self.child_nodes[item]
+    def add_child_nodes(self, *children):
+        self.child_nodes.extend(children)
 
     def pause(self):
         self.paused = True
-        for n in self.child_nodes.values():
+        for n in self.child_nodes:
             n.pause()
 
     def resume(self):
         self.paused = False
-        for n in self.child_nodes.values():
+        for n in self.child_nodes:
             n.resume()
 
     def subscribe_odom(self, callback):
