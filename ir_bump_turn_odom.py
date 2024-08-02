@@ -5,7 +5,7 @@ import rclpy
 import ir_turn, bump_turn_odom
 
 
-class IrBumpTurnBot(runner.WheelMonitorNode):
+class IrBumpTurnBot(runner.HdxNode):
     def __init__(self, namespace, ir_limit):
         super().__init__('ir_bump_turn_bot', namespace)
         self.add_child_node(ir_turn.IrTurnNode(namespace, ir_limit))

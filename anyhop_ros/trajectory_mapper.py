@@ -2,40 +2,19 @@ import sys, datetime
 import runner
 import trajectories
 import rclpy
-from geometry_msgs.msg import Twist
-from nav_msgs.msg import Odometry
 
-from ir_turn import IrTurnNode
-from alternative_avoiders.bump_turn import BumpTurnNode
+import ir_bump_turn_odom
 
 
-class TrajectoryMapper(runner.WheelMonitorNode):
+class TrajectoryMapper(ir_bump_turn_odom.IrBumpTurnBot):
     def __init__(self, namespace, ir_limit):
-        super().__init__('trajectory_mapper', namespace)
-        self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
-        self.ir_node = IrTurnNode(namespace, ir_limit)
-        self.bump_node = BumpTurnNode(namespace)
-        self.subscribe_odom(self.odom_callback)
+        super().__init__(namespace, ir_limit)
         self.map = trajectories.TrajectoryMap()
 
-    def odom_callback(self, msg: Odometry):
-        p = msg.pose.pose.position
-        self.map.update(p.x, p.y)
-        self.record_first_callback()
-        if not self.bump_node.is_turning():
-            if self.bump_node.bump_clear():
-                if not self.ir_node.is_turning():
-                    if self.ir_node.ir_clear():
-                        self.publisher.publish(runner.straight_twist(0.5))
-                    elif self.wheels_stopped():
-                        self.ir_node.start_turn_until_clear()
-            elif self.wheels_stopped():
-                self.bump_node.start_turn()
-
-    def add_self_recursive(self, executor):
-        executor.add_node(self)
-        self.bump_node.add_self_recursive(executor)
-        self.ir_node.add_self_recursive(executor)
+    def timer_callback(self):
+        super().timer_callback()
+        x, y = self['BumpTurnOdomNode'].last_x_y()
+        self.map.update(x, y)
 
 
 if __name__ == '__main__':
@@ -44,5 +23,5 @@ if __name__ == '__main__':
 
     bot = TrajectoryMapper(f'/{sys.argv[1]}', ir_limit)
     runner.run_recursive_node(bot)
-    with open(f"map_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}", 'w') as file:
+    with open(f"trajectory_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}", 'w') as file:
         file.write(f"{bot.map}\n")
