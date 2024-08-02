@@ -91,6 +91,7 @@ def display_pose(stdscr, pos_queue, start_line):
 def display_ir(stdscr, ir_queue, start_line):
     ir = runner.drain_queue(ir_queue)
     if ir:
+        mid = len(ir) // 2
         stdscr.addstr(start_line, 0, f"ir: {ir}{' ' * 30}")
         return ir
 

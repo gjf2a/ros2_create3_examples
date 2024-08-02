@@ -3,6 +3,7 @@ import math
 import runner
 import rclpy
 from irobot_create_msgs.msg import IrIntensityVector
+from typing import List
 
 
 class IrTurnNode(runner.HdxNode):
@@ -21,7 +22,7 @@ class IrTurnNode(runner.HdxNode):
     def ir_callback(self, msg: IrIntensityVector):
         self.record_first_callback()
         ir_values = [reading.value for reading in msg.readings]
-        max_ir = max(ir_values[1:-1])
+        max_ir = max(ir_values[1:-1]) if self.ir_clear() else max(ir_values)
         if max_ir > self.ir_too_close:
             if self.ir_clear():
                 mid = len(ir_values) // 2
