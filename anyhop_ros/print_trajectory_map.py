@@ -1,7 +1,5 @@
-import trajectories
+import sys
 
-import sys, pickle
-
-with open(sys.argv[1], 'wb') as map_file:
-    tmap = pickle.load(map_file)
+with open(sys.argv[1], 'w') as map_file:
+    tmap = eval(map_file.read())
     print(tmap.all_points())
