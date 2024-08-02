@@ -13,8 +13,9 @@ class TrajectoryMapper(ir_bump_turn_odom.IrBumpTurnBot):
 
     def timer_callback(self):
         super().timer_callback()
-        x, y = self['BumpTurnOdomNode'].last_x_y()
-        self.map.update(x, y)
+        p = self['BumpTurnOdomNode'].last_x_y()
+        if p is not None:
+            self.map.update(p[0], p[1])
 
 
 if __name__ == '__main__':
