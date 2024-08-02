@@ -18,10 +18,7 @@ class IrBumpTurnBot(runner.WheelMonitorNode):
     def timer_callback(self):
         self.record_first_callback()
         if not self.is_turning():
-            if self['IrTurnNode'].ir_clear():
-                self.publish_twist(runner.straight_twist(0.5))
-            elif self.wheels_stopped():
-                self['IrTurnNode'].start_turn_until_clear()
+            self.publish_twist(runner.straight_twist(0.5))
 
 
 if __name__ == '__main__':
