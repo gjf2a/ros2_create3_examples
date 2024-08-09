@@ -23,8 +23,16 @@ class IrBumpTurnBot(runner.HdxNode):
 
     def timer_callback(self):
         self.record_first_callback()
-        if not self.is_turning():
-            self.publish_twist(runner.straight_twist(0.5))
+        if self.bump_turn.is_turning():
+            print("bumping")
+            self.ir_turn.pause()
+        else:
+            self.ir_turn.resume()
+            if self.ir_turn.is_turning():
+                print("irs activated")
+            else:
+                print("forward motion")
+                self.publish_twist(runner.straight_twist(0.5))
 
 
 if __name__ == '__main__':
