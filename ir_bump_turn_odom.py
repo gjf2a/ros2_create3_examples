@@ -27,7 +27,7 @@ class IrBumpTurnBot(runner.HdxNode):
             self.ir_turn.pause()
         else:
             self.ir_turn.resume()
-            if self.ir_turn.is_clear():
+            if self.ir_turn.ir_clear():
                 self.publish_twist(runner.straight_twist(0.5))
 
 
