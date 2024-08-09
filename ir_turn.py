@@ -29,6 +29,7 @@ class IrTurnNode(runner.HdxNode):
                 self.avoid_direction = math.pi / 4
                 if sum(ir_values[:mid]) > sum(ir_values[-mid:]):
                     self.avoid_direction *= -1.0
+            print(f"avoid: {self.avoid_direction}\tmax_ir:{max_ir}\tirs:{ir_values}")
             self.publish_twist(runner.turn_twist(self.avoid_direction))
         else:
             self.avoid_direction = None

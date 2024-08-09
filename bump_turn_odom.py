@@ -26,6 +26,9 @@ class BumpTurnOdomNode(runner.OdomMonitorNode):
     def is_turning(self) -> bool:
         return self.heading_goal is not None
 
+    def stop_turn(self):
+        self.heading_goal = None
+
     def odom_callback(self, msg: Odometry):
         super().odom_callback(msg)
         if self.is_turning():

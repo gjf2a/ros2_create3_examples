@@ -199,6 +199,7 @@ class HdxNode(Node):
 
     def publish_twist(self, twist: Twist):
         if not self.paused:
+            print(f"twist: {twist}")
             self.twist_publisher.publish(twist)
 
     def record_first_callback(self):
