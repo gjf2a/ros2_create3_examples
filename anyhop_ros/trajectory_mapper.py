@@ -9,6 +9,7 @@ import ir_bump_turn_odom
 class TrajectoryMapper(ir_bump_turn_odom.IrBumpTurnBot):
     def __init__(self, namespace, ir_limit):
         super().__init__(namespace, ir_limit)
+        self.reset_odom()
         self.map = trajectories.TrajectoryMap()
 
     def timer_callback(self):
