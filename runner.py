@@ -291,6 +291,7 @@ class RemoteNode(HdxNode):
         self.pos_queue = pos_queue
         self.bump_queue = bump_queue
         self.ir_queue = ir_queue
+        self.last_ir = None
 
     def odom_callback(self, msg: Odometry):
         self.pos_queue.put(msg.pose.pose)
@@ -298,10 +299,11 @@ class RemoteNode(HdxNode):
     def hazard_callback(self, msg: HazardDetectionVector):
         b = find_bump_from(msg.detections)
         if b:
-            self.bump_queue.put(f"{b} {self.elapsed_time():.2f}")
+            self.bump_queue.put(f"{b} {self.elapsed_time():.2f} {self.last_ir}")
 
     def ir_callback(self, msg: IrIntensityVector):
-        self.ir_queue.put([reading.value for reading in msg.readings])
+        self.last_ir = [reading.value for reading in msg.readings]
+        self.ir_queue.put(self.last_ir)
 
     def timer_callback(self):
         self.pos_queue.put(self.elapsed_time())
