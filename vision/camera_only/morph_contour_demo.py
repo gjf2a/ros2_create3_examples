@@ -18,7 +18,6 @@ class Timer:
         return self.count / (time.time() - self.start)
     
 
-
 def morph_contour_loop(video_port, kernel_side, min_space_width, flood, multi, queue):
     kernel_size = (kernel_side, kernel_side)
     cap = cv2.VideoCapture(video_port)
