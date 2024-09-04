@@ -6,6 +6,8 @@ from queue import Queue
 
 def main(stdscr):
     curses.curs_set(0)
+    curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_YELLOW)
+    curses.init_pair(2, curses.COLOR_BLUE, curses.COLOR_RED)
     stdscr.clear()
 
     running = threading.Event()
@@ -17,7 +19,7 @@ def main(stdscr):
                                       daemon=True)
     capture_thread.start()
 
-    groundline_thread = threading.Thread(target=process_groundline, args=(running, 11, 10, image_queue, groundline_queue),
+    groundline_thread = threading.Thread(target=process_groundline, args=(running, (11, 11), 10, image_queue, groundline_queue),
                                          daemon=True)
     groundline_thread.start()
 
