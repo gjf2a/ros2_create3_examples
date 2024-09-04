@@ -39,9 +39,8 @@ def process_groundline(running, kernel_size: int, min_space_width: int, image_qu
         while not image_queue.empty():
             frame = image_queue.get()
         contours, close_contour, best = contour_inner_loop(frame, kernel_size, min_space_width)
-        # TODO:
-        # 1. draw the contours onto the frame somehow
-        # 2. place the processed frame into groundline_queue
+        cv2.drawContours(frame, close_contour, -1, (255, 255, 255), 3)
+        groundline_queue.put(frame)
 
 
 def contour_inner_loop(frame, kernel_size, min_space_width):
