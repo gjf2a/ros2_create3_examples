@@ -2,6 +2,7 @@ import morph_contour_demo, curses_vision_demo
 import curses, threading
 import cv2
 from queue import Queue
+from typing import Set, Tuple
 
 
 def main(stdscr):
@@ -43,15 +44,7 @@ def process_groundline(running, kernel_size: int, min_space_width: int, image_qu
         height, width = stdscr.getmaxyx()
         frame = cv2.resize(frame, (width, height))
 
-        close_points = set()
-        # inspiration from https://www.perplexity.ai/search/write-a-numpy-for-loop-examini-OgeoZY5MSwWrC7NRuLs7jw
-        for i in range(close_contour.shape[0]):
-            p = close_contour[i, 0]
-            x_down = int(p[0] * width / orig_width)
-            y_down = int(p[1] * height / orig_height)
-            close_points.add((x_down, y_down))
-
-
+        close_points = extract_reduced_points(close_contour, orig_width, orig_height, width, height)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         for y in range(height - 1):
             for x in range(width):
@@ -62,6 +55,17 @@ def process_groundline(running, kernel_size: int, min_space_width: int, image_qu
                 else:
                     stdscr.addch(y, x, curses_vision_demo.gray2char(gray[y, x]))
         stdscr.refresh()
+
+
+def extract_reduced_points(numpy_points, orig_width, orig_height, reduced_width, reduced_height) -> Set[Tuple[int,int]]:
+    # inspiration from https://www.perplexity.ai/search/write-a-numpy-for-loop-examini-OgeoZY5MSwWrC7NRuLs7jw
+    reduced = set()
+    for i in range(numpy_points.shape[0]):
+        p = numpy_points[i, 0]
+        x_down = int(p[0] * reduced_width / orig_width)
+        y_down = int(p[1] * reduced_height / orig_height)
+        reduced.add((x_down, y_down))
+    return reduced
 
 
 def contour_inner_loop(frame, kernel_size, min_space_width):
