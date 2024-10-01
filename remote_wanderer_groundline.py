@@ -1,13 +1,22 @@
 # Before running this program, type the following command:
 # sudo chmod 666 /dev/video0
 
+
+### TODO ####
+# This is a work in progress.
+# Naively throwing in the groundline thread is NOT going to work!
+# It will not integrate with the way that I programmed curses to 
+# handle input, for example. 
+# The structure needs to be rethought.
+
 import curses, sys, threading
 from queue import Queue
-import remote_wanderer, runner, curses_vision_demo
+import remote_wanderer, runner, curses_vision_demo, groundline_video
 
 
 def main(stdscr):
     curses.curs_set(0)
+    groundline_video.init_groundline_colors()
     stdscr.clear()
 
     running = threading.Event()
@@ -27,6 +36,11 @@ def main(stdscr):
 
     capture_thread = threading.Thread(target=curses_vision_demo.video_capture, args=(running, image_queue, 0), daemon=True)
     capture_thread.start()
+
+    groundline_thread = threading.Thread(target=groundline_video.process_groundline, args=(running, (11, 11), 10, image_queue, stdscr),
+                                         daemon=True)
+    groundline_thread.start()
+
 
     height, width = stdscr.getmaxyx()
     info_window = curses.newwin(9, width, 0, 0)
