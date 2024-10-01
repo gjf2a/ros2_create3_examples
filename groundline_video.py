@@ -7,8 +7,7 @@ from typing import Set, Tuple
 
 def main(stdscr):
     curses.curs_set(0)
-    curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_YELLOW)
-    curses.init_pair(2, curses.COLOR_BLUE, curses.COLOR_RED)
+    init_groundline_colors()
     stdscr.clear()
 
     running = threading.Event()
@@ -30,31 +29,37 @@ def main(stdscr):
     groundline_thread.join()
 
 
+def init_groundline_colors():
+    curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_YELLOW)
+    curses.init_pair(2, curses.COLOR_BLUE, curses.COLOR_RED)
+
+
 def process_groundline(running, kernel_size: int, min_space_width: int, image_queue: Queue, stdscr):
     while running.is_set():
         frame = image_queue.get()
         while not image_queue.empty():
             frame = image_queue.get()
-        orig_height, orig_width = frame.shape[:2]
-        contours, close_contour, best = contour_inner_loop(frame, kernel_size, min_space_width)
-        stdscr.addstr(2, 0, "text")
-        stdscr.addstr(4, 0, f"contour type: {type(close_contour)}")
-        stdscr.addstr(3, 0, f"contour shape: {close_contour.shape}")
-        stdscr.addstr(5, 0, f"{close_contour}")
-        height, width = stdscr.getmaxyx()
-        frame = cv2.resize(frame, (width, height))
+        if frame is not None:
+            orig_height, orig_width = frame.shape[:2]
+            contours, close_contour, best = contour_inner_loop(frame, kernel_size, min_space_width)
+            stdscr.addstr(2, 0, "text")
+            stdscr.addstr(4, 0, f"contour type: {type(close_contour)}")
+            stdscr.addstr(3, 0, f"contour shape: {close_contour.shape}")
+            stdscr.addstr(5, 0, f"{close_contour}")
+            height, width = stdscr.getmaxyx()
+            frame = cv2.resize(frame, (width, height))
 
-        close_points = extract_reduced_points(close_contour, orig_width, orig_height, width, height)
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        for y in range(height - 1):
-            for x in range(width):
-                if (x, y) in close_points:
-                    stdscr.addch(y, x, 'C', curses.color_pair(1))
-        #        elif (x_up, y_up) in contours:
-        #            stdscr.addch(y, x, 'c', curses.color_pair(2))
-                else:
-                    stdscr.addch(y, x, curses_vision_demo.gray2char(gray[y, x]))
-        stdscr.refresh()
+            close_points = extract_reduced_points(close_contour, orig_width, orig_height, width, height)
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            for y in range(height - 1):
+                for x in range(width):
+                    if (x, y) in close_points:
+                        stdscr.addch(y, x, 'C', curses.color_pair(1))
+            #        elif (x_up, y_up) in contours:
+            #            stdscr.addch(y, x, 'c', curses.color_pair(2))
+                    else:
+                        stdscr.addch(y, x, curses_vision_demo.gray2char(gray[y, x]))
+            stdscr.refresh()
 
 
 def extract_reduced_points(numpy_points, orig_width, orig_height, reduced_width, reduced_height) -> Set[Tuple[int,int]]:
