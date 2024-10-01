@@ -5,6 +5,9 @@ from queue import Queue
 from typing import Set, Tuple
 
 
+DATA_BLOCK_ROWS = 6
+
+
 def main(stdscr):
     curses.curs_set(0)
     init_groundline_colors()
@@ -47,6 +50,7 @@ def process_groundline(running, kernel_size: int, min_space_width: int, image_qu
             stdscr.addstr(3, 0, f"contour shape: {close_contour.shape}")
             stdscr.addstr(5, 0, f"{close_contour}")
             height, width = stdscr.getmaxyx()
+            height -= DATA_BLOCK_ROWS
             frame = cv2.resize(frame, (width, height))
 
             close_points = extract_reduced_points(close_contour, orig_width, orig_height, width, height)
@@ -54,11 +58,11 @@ def process_groundline(running, kernel_size: int, min_space_width: int, image_qu
             for y in range(height - 1):
                 for x in range(width):
                     if (x, y) in close_points:
-                        stdscr.addch(y, x, 'C', curses.color_pair(1))
+                        stdscr.addch(y + DATA_BLOCK_ROWS, x, 'C', curses.color_pair(1))
             #        elif (x_up, y_up) in contours:
             #            stdscr.addch(y, x, 'c', curses.color_pair(2))
                     else:
-                        stdscr.addch(y, x, curses_vision_demo.gray2char(gray[y, x]))
+                        stdscr.addch(y + DATA_BLOCK_ROWS, x, curses_vision_demo.gray2char(gray[y, x]))
             stdscr.refresh()
 
 
