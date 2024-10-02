@@ -61,22 +61,22 @@ def handle_image(image_queue, image_window):
 
 
 def process_groundline(frame, kernel_size: Tuple[int,int], min_space_width: int, stdscr):
-            orig_height, orig_width = frame.shape[:2]
-            contours, close_contour, best = groundline_video.contour_inner_loop(frame, kernel_size, min_space_width)
-            height, width = stdscr.getmaxyx()
-            frame = cv2.resize(frame, (width, height))
+    orig_height, orig_width = frame.shape[:2]
+    contours, close_contour, best = groundline_video.contour_inner_loop(frame, kernel_size, min_space_width)
+    height, width = stdscr.getmaxyx()
+    frame = cv2.resize(frame, (width, height))
 
-            close_points = groundline_video.extract_reduced_points(close_contour, orig_width, orig_height, width, height)
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            for y in range(height - 1):
-                for x in range(width):
-                    if (x, y) in close_points:
-                        stdscr.addch(y, x, 'C', curses.color_pair(1))
-            #        elif (x_up, y_up) in contours:
-            #            stdscr.addch(y, x, 'c', curses.color_pair(2))
-                    else:
-                        stdscr.addch(y, x, curses_vision_demo.gray2char(gray[y, x]))
-            stdscr.refresh()
+    close_points = groundline_video.extract_reduced_points(close_contour, orig_width, orig_height, width, height)
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    for y in range(height - 1):
+        for x in range(width):
+            if (x, y) in close_points:
+                stdscr.addch(y, x, 'C', curses.color_pair(1))
+    #        elif (x_up, y_up) in contours:
+    #            stdscr.addch(y, x, 'c', curses.color_pair(2))
+            else:
+                stdscr.addch(y, x, curses_vision_demo.gray2char(gray[y, x]))
+    stdscr.refresh()
 
 
 

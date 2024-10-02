@@ -37,7 +37,7 @@ def init_groundline_colors():
     curses.init_pair(2, curses.COLOR_BLUE, curses.COLOR_RED)
 
 
-def process_groundline(running, kernel_size: int, min_space_width: int, image_queue: Queue, stdscr):
+def process_groundline(running, kernel_size: Tuple[int,int], min_space_width: int, image_queue: Queue, stdscr):
     while running.is_set():
         frame = image_queue.get()
         while not image_queue.empty():
