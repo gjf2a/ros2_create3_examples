@@ -2,13 +2,6 @@
 # sudo chmod 666 /dev/video0
 
 
-### TODO ####
-# This is a work in progress.
-# Naively throwing in the groundline thread is NOT going to work!
-# It will not integrate with the way that I programmed curses to 
-# handle input, for example. 
-# The structure needs to be rethought.
-
 import curses, sys, threading
 from queue import Queue
 import remote_wanderer, runner, curses_vision_demo, groundline_video
@@ -89,6 +82,6 @@ def process_groundline(frame, kernel_size: Tuple[int,int], min_space_width: int,
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print("Usage: remote_wanderer_video robot_name")
+        print("Usage: remote_wanderer_groundline robot_name")
     else:
         curses.wrapper(main)
