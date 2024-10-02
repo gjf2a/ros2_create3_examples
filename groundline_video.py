@@ -45,10 +45,11 @@ def process_groundline(running, kernel_size: int, min_space_width: int, image_qu
         if frame is not None:
             orig_height, orig_width = frame.shape[:2]
             contours, close_contour, best = contour_inner_loop(frame, kernel_size, min_space_width)
-            stdscr.addstr(2, 0, "text")
-            stdscr.addstr(4, 0, f"contour type: {type(close_contour)}")
-            stdscr.addstr(3, 0, f"contour shape: {close_contour.shape}")
-            stdscr.addstr(5, 0, f"{close_contour}")
+            if close_contour is not None:
+                stdscr.addstr(2, 0, "text")
+                stdscr.addstr(4, 0, f"contour type: {type(close_contour)}")
+                stdscr.addstr(3, 0, f"contour shape: {close_contour.shape}")
+                stdscr.addstr(5, 0, f"{close_contour}")
             height, width = stdscr.getmaxyx()
             height -= DATA_BLOCK_ROWS
             frame = cv2.resize(frame, (width, height))
@@ -69,11 +70,12 @@ def process_groundline(running, kernel_size: int, min_space_width: int, image_qu
 def extract_reduced_points(numpy_points, orig_width, orig_height, reduced_width, reduced_height) -> Set[Tuple[int,int]]:
     # inspiration from https://www.perplexity.ai/search/write-a-numpy-for-loop-examini-OgeoZY5MSwWrC7NRuLs7jw
     reduced = set()
-    for i in range(numpy_points.shape[0]):
-        p = numpy_points[i, 0]
-        x_down = int(p[0] * reduced_width / orig_width)
-        y_down = int(p[1] * reduced_height / orig_height)
-        reduced.add((x_down, y_down))
+    if numpy_points is not None:
+        for i in range(numpy_points.shape[0]):
+            p = numpy_points[i, 0]
+            x_down = int(p[0] * reduced_width / orig_width)
+            y_down = int(p[1] * reduced_height / orig_height)
+            reduced.add((x_down, y_down))
     return reduced
 
 
