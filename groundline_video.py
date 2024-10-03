@@ -51,7 +51,8 @@ def process_groundline(running, kernel_size: Tuple[int,int], min_space_width: in
                 stdscr.addstr(2, 0, "text")
                 stdscr.addstr(3, 0, f"contour shape: {close_contour.shape}")
                 stdscr.addstr(4, 0, f"contour type: {type(close_contour)}")
-            stdscr.addstr(5, 0, f"{num_frames / (time.time() - start):.1f} fps")
+            elapsed = time.time() - start
+            stdscr.addstr(5, 0, f"{num_frames/elapsed:.1f} fps ({num_frames}/{elapsed:.1f}s)")
             height, width = stdscr.getmaxyx()
             height -= DATA_BLOCK_ROWS
             frame = cv2.resize(frame, (width, height))
