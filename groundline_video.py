@@ -1,5 +1,5 @@
 import morph_contour_demo, curses_vision_demo
-import curses, threading
+import curses, threading, time
 import cv2
 from queue import Queue
 from typing import Set, Tuple
@@ -38,6 +38,8 @@ def init_groundline_colors():
 
 
 def process_groundline(running, kernel_size: Tuple[int,int], min_space_width: int, image_queue: Queue, stdscr):
+    start = time.time()
+    num_frames = 0
     while running.is_set():
         frame = image_queue.get()
         while not image_queue.empty():
@@ -49,6 +51,7 @@ def process_groundline(running, kernel_size: Tuple[int,int], min_space_width: in
                 stdscr.addstr(2, 0, "text")
                 stdscr.addstr(3, 0, f"contour shape: {close_contour.shape}")
                 stdscr.addstr(4, 0, f"contour type: {type(close_contour)}")
+            stdscr.addstr(5, 0, f"{num_frames / (time.time() - start):.1f} fps")
             height, width = stdscr.getmaxyx()
             height -= DATA_BLOCK_ROWS
             frame = cv2.resize(frame, (width, height))
@@ -63,6 +66,7 @@ def process_groundline(running, kernel_size: Tuple[int,int], min_space_width: in
             #            stdscr.addch(y, x, 'c', curses.color_pair(2))
                     else:
                         stdscr.addch(y + DATA_BLOCK_ROWS, x, curses_vision_demo.gray2char(gray[y, x]))
+            num_frames += 1
             stdscr.refresh()
 
 
