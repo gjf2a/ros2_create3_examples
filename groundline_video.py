@@ -47,9 +47,8 @@ def process_groundline(running, kernel_size: Tuple[int,int], min_space_width: in
             contours, close_contour, best = contour_inner_loop(frame, kernel_size, min_space_width)
             if close_contour is not None:
                 stdscr.addstr(2, 0, "text")
-                stdscr.addstr(4, 0, f"contour type: {type(close_contour)}")
                 stdscr.addstr(3, 0, f"contour shape: {close_contour.shape}")
-                stdscr.addstr(5, 0, f"{close_contour}")
+                stdscr.addstr(4, 0, f"contour type: {type(close_contour)}")
             height, width = stdscr.getmaxyx()
             height -= DATA_BLOCK_ROWS
             frame = cv2.resize(frame, (width, height))
