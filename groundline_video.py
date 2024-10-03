@@ -64,7 +64,7 @@ def process_groundline(running, kernel_size: Tuple[int,int], min_space_width: in
                 for x in range(width):
                     if (x, y) in close_points:
                         #stdscr.addch(y + DATA_BLOCK_ROWS, x, 'C', curses.color_pair(1))
-                        s += 'C'
+                        s += curses_vision_demo.gray2char(255)
                     else:
                         #stdscr.addch(y + DATA_BLOCK_ROWS, x, curses_vision_demo.gray2char(gray[y, x]))
                         s += curses_vision_demo.gray2char(gray[y, x])
