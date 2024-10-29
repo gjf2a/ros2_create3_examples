@@ -49,6 +49,7 @@ class LLMConnector: #class used to create calls to Ollama API
 
 def outputSpeech(text): #method for text to voice output, takes message as input
     speech_engine.pyttsSpeaker().outputSpeech(text)
+    print(text)
     writeToFile('transcript.txt', "system: " + text)
 def getSpeechInput(output): #outputs message, returns result of voice input, takes message as input
     input = speech_engine.voskRecognizer().getInput(output)
@@ -85,44 +86,41 @@ class PackageDeliveryState(): #state in which robot delivers package from curren
         executed = False
         prompt = self.request
         timer = ""
-        for i in range(5): #allows four additional attempts to fine tune prompt before failing process
+        for i in range(2): #allows additional attempt to fine tune prompt before failing process
             deliveryDetails = self.methodCaller.prompt(prompt).replace('*','')  #recieves details in specifed format from llm
             parts = deliveryDetails.split() #seperates location and item
-            if len(parts) >= 2 and parts[0] in self.runner.state.package_locations and parts[1] in self.runner.state.graph: #verifies that method call contains valid package and location
-                response = getSpeechInput("To confirm, would you like " + parts[0] + " to be delivered to " + self.runner.state.aliases[parts[1]] + "?") #verifies request using package and location
+            if len(parts) >= 2 and parts[0].lower() in self.runner.state.package_locations and parts[1][0:2] in self.runner.state.graph: #verifies that method call contains valid package and location
+                response = getSpeechInput("To confirm, would you like " + parts[0].lower() + " to be delivered to " + self.runner.state.aliases[parts[1][0:2]] + "?") #verifies request using package and location
                 classification = self.classifier.prompt(response) #recieves a 0 or 1 as a response from llm- 1 indicates positive verification
                 if '1' in classification: #user has verified method call
-                    self.runner.current_input = "deliver " + parts[0] + " " + parts[1]  #sets method as runner's current input
+                    self.runner.current_input = "deliver " + parts[0].lower() + " " + parts[1][0:2]  #sets method as runner's current input
                     self.runner.deliver() #executes method call
                     self.runner.run_loop() #runs loop to execute plan
                     timer = str(time.perf_counter()-self.startTime)
                     writeToFile("transcript.txt", "**Command executed in " + str(timer) + " seconds**")
                     executed = True
                     break #breaks loop because no further fine tuning is needed
-                elif i == 4: #user has not verified prompt and all attempts are used
+                elif i == 1: #user has not verified prompt and all attempts are used
                     outputSpeech("Unable to verify instructions, process failed")
                 else: #user has not verified prompt, but attempts remain
                     newInfo = getSpeechInput("Please clarify an item and destination") #gets clarification from user                  
                     prompt = prompt + newInfo #adds additional instructions to original prompt
                     userRevisions += 1
-            elif i <4: #tries again with same prompt because the response from the llm was bad
-                if (systemCorrections %2) == 1:
-                    newInfo = getSpeechInput("Please clarify an item and destination") #gets clarification from user                  
-                    prompt = prompt + newInfo #adds additional instructions to original prompt
-                    userRevisions += 1
-                else:
-                    outputSpeech("Trying again")
+            elif i <1: #tries again with same prompt because the response from the llm was bad
+                newInfo = getSpeechInput("Please clarify an item and destination") #gets clarification from user                  
+                prompt = prompt + newInfo #adds additional instructions to original prompt
+                userRevisions += 1
                 systemCorrections += 1
             else:
                 outputSpeech("Process failed")
-        writeToFile("log.txt", state + "," + str(userRevisions) + "," + str(systemCorrections) + "," + str(executed) + "," + str(timer))
+        writeToFile("log.txt", state + "," + str(userRevisions) + "," + str(systemCorrections) + "," + str(executed) + "," + str(timer) + ",voice")
         return RoutingState(self.runner) #returns next state to main method, which is the routing state
 
 class DescriptionState(): #state in which llm provides description of state of system
     def __init__(self, runner, startTime): #initialized with runner
         self.runner = runner
         self.startTime = startTime
-        message = getStateDescription(self.runner) + "Based only on the provided information, breifly describe where each package is currently located in plain english. Do not provide additional explanations or speculation. Do not make up or describe any packages that are not explicitly listed with a location in the prompt." 
+        message = getStateDescription(self.runner) + "Based only on the provided information, briefly describe where each package is currently located in plain english. Do not provide additional explanations or speculation. Do not make up or describe any packages that are not explicitly listed with a location in the prompt." 
         #creates instance of LLM Connector that sets up model to recieve a list of current locations and describe the sytem
         self.describer = LLMConnector("phi3:instruct", message)
     def action(self): #action outputs a description of the state of the system
@@ -142,7 +140,7 @@ class QuestionState(): #state in which the user can ask a question for clarifica
         self.runner = runner
         self.request = request
         self.startTime = startTime
-        message = "You are part of an artificial intelligence system that controls the movement of an iRobot Create3 robot. The robot can be navigated between any two destinations and deliver packages. " + getStateDescription(self.runner) + " The following is a question asked by the user. Do your best to provide a breif response based on the previous information. "
+        message = "You are part of an artificial intelligence system that controls the movement of an iRobot Create3 robot. The robot can be navigated between any two destinations and deliver packages. " + getStateDescription(self.runner) + " The following is a question asked by the user. Do your best to provide a brief response based on the previous information. "
         #creates local instance of connector that describes the premise of the system and sets the llm up to recieve a list of locations and a question to answer
         self.answerer = LLMConnector("phi3:instruct", message)
     def action(self): #action gets question from user and outputs response
@@ -177,27 +175,27 @@ class NavigationState(): #state in which the robot moves from current location t
         prompt = self.request
         timer = ""
         prompt = self.request
-        for i in range(5): #allows four additional attempts to fine tune prompt before failing process
+        for i in range(2): #allows additional attempt to fine tune prompt before failing process
             navigationDetails = self.methodCaller.prompt(prompt).replace('*','')  #recieves details in specifed format from llm
             parts = navigationDetails.split() #seperates location and item
-            if len(parts) >= 1 and parts[0] in self.runner.state.graph: #verifies that method call contains valid location
+            if len(parts) >= 1 and parts[0][0:2] in self.runner.state.graph: #verifies that method call contains valid location
                 response = getSpeechInput("To confirm, would you like the robot to navigate to" + self.runner.state.aliases[parts[0]] + "?") #verifies request using location
                 classification = self.classifier.prompt(response) #recieves a 0 or 1 as a response from llm- 1 indicates positive verification
                 if '1' in classification: #user has verified method call
-                    self.runner.current_input = "go " + parts[0] #sets method as runner's current input
+                    self.runner.current_input = "go " + parts[0][0:2] #sets method as runner's current input
                     self.runner.go() #executes method call
                     self.runner.run_loop() #runs loop to execute plan
                     executed = True
                     timer = str(time.perf_counter()-self.startTime)
                     writeToFile("transcript.txt", "**Command executed in " + str(timer) + " seconds**")
                     break #breaks loop because no further fine tuning is needed
-                elif i == 4: #user has not verified prompt and all attempts are used
+                elif i == 1: #user has not verified prompt and all attempts are used
                     outputSpeech("Unable to verify instructions")
                 else: #user has not verified prompt, but attempts remain
                     newInfo = getSpeechInput("Please clarify a destination") #gets clarification from user for fine tuning
                     prompt = prompt + newInfo #adds additional instructions to original prompt
                     userRevisions += 1
-            elif i<4: #tries again with same prompt because the response from the llm was bad
+            elif i<1: #tries again with same prompt because the response from the llm was bad
                 if (systemCorrections %2) == 1:
                     newInfo = getSpeechInput("Please clarify an item and destination") #gets clarification from user                  
                     prompt = prompt + newInfo #adds additional instructions to original prompt
@@ -239,8 +237,6 @@ class RoutingState(): #state in which the system determines which state the user
                     return DescriptionState(self.runner, startTime) #returns next state which is description
                 elif num == 3: #3 means the user wants to ask a question 
                     return QuestionState(self.runner, request, startTime) #returns next state which is question
-                elif num == 4: 
-                    return -1
                 else: outputSpeech("Please try again.")
             except: #catches any errors in case the response is in an improper format
                 outputSpeech("Please try again.")
@@ -274,3 +270,5 @@ def main(args=None):
     sys.quit()
 if __name__ == '__main__':
     main()
+
+
