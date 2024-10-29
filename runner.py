@@ -159,12 +159,25 @@ class HdxNode(Node):
         self.done = False
         self.twist_publisher = self.create_publisher(Twist, f"{namespace}/cmd_vel", 10)
         self.paused = False
+        self.child_nodes = []
+
+    def add_self_recursive(self, executor):
+        executor.add_node(self)
+        for n in self.child_nodes:
+            n.add_self_recursive(executor)
+
+    def add_child_nodes(self, *children):
+        self.child_nodes.extend(children)
 
     def pause(self):
         self.paused = True
+        for n in self.child_nodes:
+            n.pause()
 
     def resume(self):
         self.paused = False
+        for n in self.child_nodes:
+            n.resume()
 
     def subscribe_odom(self, callback):
         self.create_subscription(Odometry, f'{self.namespace}/odom', callback, qos_profile_sensor_data)
@@ -220,11 +233,12 @@ class OdomMonitorNode(HdxNode):
     def has_position(self) -> bool:
         return self.last_pose is not None
 
-    def last_x_y(self):
-        p = self.last_pose.position
-        return p.x, p.y
+    def last_x_y(self) -> Tuple[float, float]:
+        if self.last_pose is not None:
+            p = self.last_pose.position
+            return p.x, p.y
 
-    def last_heading(self):
+    def last_heading(self) -> float:
         return quaternion2euler(self.last_pose.orientation)[0]
 
 
@@ -277,6 +291,7 @@ class RemoteNode(HdxNode):
         self.pos_queue = pos_queue
         self.bump_queue = bump_queue
         self.ir_queue = ir_queue
+        self.last_ir = None
 
     def odom_callback(self, msg: Odometry):
         self.pos_queue.put(msg.pose.pose)
@@ -284,10 +299,11 @@ class RemoteNode(HdxNode):
     def hazard_callback(self, msg: HazardDetectionVector):
         b = find_bump_from(msg.detections)
         if b:
-            self.bump_queue.put(f"{b} {self.elapsed_time():.2f}")
+            self.bump_queue.put(f"{b} {self.elapsed_time():.2f} {self.last_ir}")
 
     def ir_callback(self, msg: IrIntensityVector):
-        self.ir_queue.put([reading.value for reading in msg.readings])
+        self.last_ir = [reading.value for reading in msg.readings]
+        self.ir_queue.put(self.last_ir)
 
     def timer_callback(self):
         self.pos_queue.put(self.elapsed_time())

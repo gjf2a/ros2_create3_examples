@@ -3,7 +3,7 @@
 # Otherwise, it will fail due to lack of permission.
 # Maybe I should just add it to this program! But then you have to sudo...
 
-# From https://www.perplexity.ai/search/write-a-python-ZqWIYEsXTJiLiru0F7XzIg
+# Modified from https://www.perplexity.ai/search/write-a-python-ZqWIYEsXTJiLiru0F7XzIg
 
 import cv2
 import curses
@@ -29,13 +29,13 @@ def gray2char(gray):
     return encodings[gray // gap]
 
 
-def video_display(event, image_queue, win):
+def video_display(running, image_queue, win):
     start = None
 
     frames_acquired = 0
     frames_displayed = 0
 
-    while event.is_set():
+    while running.is_set():
         frame = image_queue.get()
         if start is None:
             start = time.time()
@@ -63,24 +63,22 @@ def display_frame(frame, win):
             win.addch(y, x, gray2char(gray[y, x]))
 
 
-
 def main(stdscr):
-    event = threading.Event()
+    running = threading.Event()
     image_queue = queue.Queue()
-    event.set()
+    running.set()
 
-    capture_thread = threading.Thread(target=video_capture, args=(event, image_queue, 0), daemon=True)
-    display_thread = threading.Thread(target=video_display, args=(event, image_queue, stdscr), daemon=True)
+    capture_thread = threading.Thread(target=video_capture, args=(running, image_queue, 0), daemon=True)
+    display_thread = threading.Thread(target=video_display, args=(running, image_queue, stdscr), daemon=True)
     capture_thread.start()
     display_thread.start()
 
     stdscr.getch()
-    event.clear()    
+    running.clear()
 
     capture_thread.join()
     display_thread.join()
-    
-    
+
 
 def euclidean_distance(a, b):
     assert len(a) == len(b)

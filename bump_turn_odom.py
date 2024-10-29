@@ -26,6 +26,9 @@ class BumpTurnOdomNode(runner.OdomMonitorNode):
     def is_turning(self) -> bool:
         return self.heading_goal is not None
 
+    def stop_turn(self):
+        self.heading_goal = None
+
     def odom_callback(self, msg: Odometry):
         super().odom_callback(msg)
         if self.is_turning():
@@ -42,24 +45,18 @@ class BumpTurnOdomNode(runner.OdomMonitorNode):
             goal = runner.discretish_norm(angle_center, angle_center / 2, self.avoid_random_vars)
             self.heading_goal = self.last_heading() + goal
 
-    def add_self_recursive(self, executor):
-        executor.add_node(self)
-
 
 class BumpTurnOdomBot(runner.HdxNode):
     def __init__(self, namespace: str = ""):
         super().__init__('bump_turn_bot', namespace)
-        self.bump_node = BumpTurnOdomNode(namespace)
+        self.bump_turn = BumpTurnOdomNode(namespace)
+        self.add_child_nodes(self.bump_turn)
         self.create_timer(0.10, self.timer_callback)
 
     def timer_callback(self):
         self.record_first_callback()
-        if not self.bump_node.is_turning():
+        if not self.bump_turn.is_turning():
             self.publish_twist(runner.straight_twist(0.5))
-
-    def add_self_recursive(self, executor):
-        executor.add_node(self)
-        self.bump_node.add_self_recursive(executor)
 
 
 if __name__ == '__main__':

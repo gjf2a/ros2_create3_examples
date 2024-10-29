@@ -17,16 +17,21 @@ class Landmark:
 
 class TrajectoryMap:
     def __init__(self, distance_tolerance: float=0.01, heading_tolerance: float = math.pi / 32,
-                 start=None, collisions=None, prev=None, current=None):
+                 start=None, collisions=None, prev=None, current=None, named_locations=None):
         self.distance_tolerance = distance_tolerance
         self.heading_tolerance = heading_tolerance
         self.start = start
         self.collisions = [] if collisions is None else collisions
         self.prev = prev
         self.current = current
+        self.named_locations = {} if named_locations is None else named_locations
 
     def __repr__(self):
-        return f"TrajectoryMap({self.distance_tolerance}, {self.heading_tolerance}, {self.start}, {self.collisions}, {self.prev}, {self.current})"
+        return f"TrajectoryMap({self.distance_tolerance}, {self.heading_tolerance}, {self.start}, {self.collisions}, {self.prev}, {self.current}, {self.named_locations})"
+
+    def assign_location_name(self, name: str):
+        if self.current is not None:
+            self.named_locations[name] = self.current
 
     def is_started(self) -> bool:
         return self.start is not None

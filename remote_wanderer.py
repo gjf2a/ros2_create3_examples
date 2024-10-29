@@ -1,5 +1,5 @@
 import runner
-import ir_bump_turn_odom, bump_turn_odom
+import ir_bump_turn_odom
 from geometry_msgs.msg import Pose
 import curses
 import threading
@@ -11,10 +11,10 @@ class RemoteWandererNode(runner.RemoteNode):
     """
     Variant of RemoteNode that can be commanded to wander autonomously.
     """
-    def __init__(self, cmd_queue, pos_queue, ir_queue, bump_queue, namespace: str = "", ir_limit=50):
+    def __init__(self, cmd_queue, pos_queue, ir_queue, bump_queue, namespace: str = "", ir_limit=35):
         super().__init__(cmd_queue, pos_queue, ir_queue, bump_queue, namespace)
-        #self.wanderer = ir_bump_turn_odom.IrBumpTurnBot(namespace, ir_limit)
-        self.wanderer = bump_turn_odom.BumpTurnOdomBot(namespace)
+        self.wanderer = ir_bump_turn_odom.IrBumpTurnBot(namespace, ir_limit)
+        self.add_child_nodes(self.wanderer)
 
     def timer_callback(self):
         self.pos_queue.put(self.elapsed_time())
@@ -26,10 +26,6 @@ class RemoteWandererNode(runner.RemoteNode):
             elif msg == 'f':
                 self.wanderer.resume()
         self.pos_queue.put(f"wanderer paused? {self.wanderer.paused} ")
-
-    def add_self_recursive(self, executor):
-        executor.add_node(self)
-        self.wanderer.add_self_recursive(executor)
 
 
 def main(stdscr):

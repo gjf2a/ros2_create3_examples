@@ -1,41 +1,22 @@
-import sys, datetime
+import sys, datetime, threading
 import runner
 import trajectories
 import rclpy
-from geometry_msgs.msg import Twist
-from nav_msgs.msg import Odometry
 
-from ir_turn import IrTurnNode
-from alternative_avoiders.bump_turn import BumpTurnNode
+import ir_bump_turn_odom
 
 
-class TrajectoryMapper(runner.WheelMonitorNode):
+class TrajectoryMapper(ir_bump_turn_odom.IrBumpTurnBot):
     def __init__(self, namespace, ir_limit):
-        super().__init__('trajectory_mapper', namespace)
-        self.publisher = self.create_publisher(Twist, namespace + '/cmd_vel', 10)
-        self.ir_node = IrTurnNode(namespace, ir_limit)
-        self.bump_node = BumpTurnNode(namespace)
-        self.subscribe_odom(self.odom_callback)
+        super().__init__(namespace, ir_limit)
+        self.reset_odom()
         self.map = trajectories.TrajectoryMap()
 
-    def odom_callback(self, msg: Odometry):
-        p = msg.pose.pose.position
-        self.map.update(p.x, p.y)
-        self.record_first_callback()
-        if not self.bump_node.is_turning():
-            if self.bump_node.bump_clear():
-                if not self.ir_node.is_turning():
-                    if self.ir_node.ir_clear():
-                        self.publisher.publish(runner.straight_twist(0.5))
-                    elif self.wheels_stopped():
-                        self.ir_node.start_turn_until_clear()
-            elif self.wheels_stopped():
-                self.bump_node.start_turn()
-
-    def add_self_recursive(self, executor):
-        executor.add_node(self)
-        self.bump_node.add_self_recursive(executor)
-        self.ir_node.add_self_recursive(executor)
+    def timer_callback(self):
+        super().timer_callback()
+        p = self.last_x_y()
+        if p is not None:
+            self.map.update(p[0], p[1])
 
 
 if __name__ == '__main__':
@@ -43,6 +24,35 @@ if __name__ == '__main__':
     ir_limit = 50 if len(sys.argv) < 3 else int(sys.argv[2])
 
     bot = TrajectoryMapper(f'/{sys.argv[1]}', ir_limit)
-    runner.run_recursive_node(bot)
-    with open(f"map_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}", 'w') as file:
-        file.write(f"{bot.map.all_points()}\n")
+
+    executor = rclpy.executors.MultiThreadedExecutor()
+    bot.add_self_recursive(executor)
+    executor_thread = threading.Thread(target=executor.spin, daemon=True)
+    executor_thread.start()
+    quit = False
+    while not quit:
+        print("Options")
+        print("1: Pause")
+        print("2: Pause and name location")
+        print("3: Resume")
+        print("4: Quit")
+        option = input("Enter choice: ")
+        if option.isdigit():
+            option = int(option)
+            if option <= 2:
+                bot.pause()
+                if option == 2:
+                    name = input("Enter location name: ")
+                    if len(name) > 0:
+                        bot.map.assign_location_name(name)
+                        print(f"{name} assigned to {bot.map.current}")
+                    else:
+                        print("No name assignment performed")
+            elif option == 3:
+                bot.resume()
+            elif option == 4:
+                quit = True
+    rclpy.shutdown()
+    executor_thread.join()
+    with open(f"trajectory_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}", 'w') as file:
+        file.write(f"{bot.map}\n")
