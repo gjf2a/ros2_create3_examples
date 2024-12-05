@@ -21,7 +21,6 @@ class IrPrintNode(runner.HdxNode):
 
     def ir_callback(self, msg: IrIntensityVector):
         self.record_first_callback()
-        print(f"MSG: {msg}\n\n")
         ir_values = [reading.value for reading in msg.readings]
         frame_ids = [reading.header.frame_id for reading in msg.readings]
         print(f"{ir_values}\n{frame_ids}\n")
