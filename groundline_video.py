@@ -59,18 +59,18 @@ def process_groundline(running, kernel_size: Tuple[int,int], min_space_width: in
             close_points = extract_reduced_points(close_contour, orig_width, orig_height, width, height)
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             stdscr.addstr(4, 0, f"{gray.shape}")
-            s = ""
-            for y in range(height - 1):
-                for x in range(width):
-                    if (x, y) in close_points:
-                        #stdscr.addch(y + DATA_BLOCK_ROWS, x, 'C', curses.color_pair(1))
-                        s += curses_vision_demo.gray2char(255)
-                    else:
-                        #stdscr.addch(y + DATA_BLOCK_ROWS, x, curses_vision_demo.gray2char(gray[y, x]))
-                        s += curses_vision_demo.gray2char(gray[y, x])
-            stdscr.addstr(DATA_BLOCK_ROWS, 0, s)
+            show_image(stdscr, gray, close_points, width, height)
             num_frames += 1
             stdscr.refresh()
+
+
+def show_image(stdscr, gray, close_points, width, height):
+    for y in range(height - 1):
+        for x in range(width):
+            if (x, y) in close_points:
+                stdscr.addch(y + DATA_BLOCK_ROWS, x, 'G', curses.color_pair(1))
+            else:
+                stdscr.addch(y + DATA_BLOCK_ROWS, x, curses_vision_demo.gray2char(gray[y, x]))
 
 
 def extract_reduced_points(numpy_points, orig_width, orig_height, reduced_width, reduced_height) -> Set[Tuple[int,int]]:
