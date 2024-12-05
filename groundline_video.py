@@ -49,8 +49,7 @@ def process_groundline(running, kernel_size: Tuple[int,int], min_space_width: in
             contours, close_contour, best = contour_inner_loop(frame, kernel_size, min_space_width)
             if close_contour is not None:
                 stdscr.addstr(2, 0, "text")
-                stdscr.addstr(3, 0, f"contour shape: {close_contour.shape}")
-                stdscr.addstr(4, 0, f"contour type: {type(close_contour)}")
+                stdscr.addstr(3, 0, f"contour shape: {close_contour.shape} type: {type(close_contour)}")
             elapsed = time.time() - start
             stdscr.addstr(5, 0, f"{num_frames/elapsed:.1f} fps ({num_frames}/{elapsed:.1f}s)")
             height, width = stdscr.getmaxyx()
@@ -59,6 +58,7 @@ def process_groundline(running, kernel_size: Tuple[int,int], min_space_width: in
 
             close_points = extract_reduced_points(close_contour, orig_width, orig_height, width, height)
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            stdscr.addstr(4, 0, f"{gray.shape}")
             s = ""
             for y in range(height - 1):
                 for x in range(width):
