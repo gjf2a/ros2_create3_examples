@@ -16,20 +16,25 @@ def main(stdscr):
     running = threading.Event()
     running.set()
     image_queue = Queue()
+    close_points_queue = Queue()
 
     capture_thread = threading.Thread(target=curses_vision_demo.video_capture, args=(running, image_queue, 0),
                                       daemon=True)
     capture_thread.start()
 
-    groundline_thread = threading.Thread(target=process_groundline, args=(running, (11, 11), 10, image_queue, stdscr),
+    groundline_thread = threading.Thread(target=process_groundline, args=(running, (11, 11), 10, image_queue, close_points_queue, stdscr),
                                          daemon=True)
     groundline_thread.start()
+
+    point_receiving_thread = threading.Thread(target=receive_points, args=(running, close_points_queue, stdscr), daemon=True)
+    point_receiving_thread.start()
 
     stdscr.getch()
     running.clear()
 
     capture_thread.join()
     groundline_thread.join()
+    point_receiving_thread.join()
 
 
 def init_groundline_colors():
@@ -37,7 +42,7 @@ def init_groundline_colors():
     curses.init_pair(2, curses.COLOR_BLUE, curses.COLOR_RED)
 
 
-def process_groundline(running, kernel_size: Tuple[int,int], min_space_width: int, image_queue: Queue, stdscr):
+def process_groundline(running, kernel_size: Tuple[int,int], min_space_width: int, image_queue: Queue, close_points_queue: Queue, stdscr):
     start = time.time()
     num_frames = 0
     while running.is_set():
@@ -48,7 +53,7 @@ def process_groundline(running, kernel_size: Tuple[int,int], min_space_width: in
             orig_height, orig_width = frame.shape[:2]
             contours, close_contour, best = contour_inner_loop(frame, kernel_size, min_space_width)
             if close_contour is not None:
-                stdscr.addstr(2, 0, "text")
+                stdscr.addstr(1, 0, "text")
                 stdscr.addstr(3, 0, f"contour shape: {close_contour.shape} type: {type(close_contour)}")
             elapsed = time.time() - start
             stdscr.addstr(5, 0, f"{num_frames/elapsed:.1f} fps ({num_frames}/{elapsed:.1f}s)")
@@ -57,6 +62,7 @@ def process_groundline(running, kernel_size: Tuple[int,int], min_space_width: in
             frame = cv2.resize(frame, (width, height))
 
             close_points = extract_reduced_points(close_contour, orig_width, orig_height, width, height)
+            close_points_queue.put(close_points)
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             stdscr.addstr(4, 0, f"{gray.shape}")
             show_image(stdscr, gray, close_points, width, height)
@@ -94,6 +100,19 @@ def contour_inner_loop(frame, kernel_size, min_space_width):
         clusters = morph_contour_demo.find_contour_clusters(close_contour)
         best = morph_contour_demo.best_contour_cluster(clusters, min_space_width)
         return contours, close_contour, best
+
+
+def receive_points(running, close_points_queue, stdscr):
+    while running.is_set():
+        close_points = close_points_queue.get()
+        best_x = 0
+        best_y = max(y for (x, y) in close_points)
+        for (x, y) in close_points:
+            if y < best_y:
+                best_x = x
+                best_y = y
+        stdscr.addstr(2, 0, f"best (x, y): ({best_x}, {best_y})          ")
+        stdscr.refresh()
 
 
 if __name__ == '__main__':
